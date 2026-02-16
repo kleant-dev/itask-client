@@ -1,105 +1,78 @@
-import type { ReactElement } from "react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Apple, Chrome, EyeOff, Facebook } from "lucide-react";
-import { FcGoogle } from "react-icons/fc";
 
-const LoginForm = (): ReactElement => {
+export function LoginForm({
+  className,
+  ...props
+}: React.ComponentProps<"form">) {
   return (
-    <div className="flex w-full max-w-[650px] items-center justify-center p-6 bg-white rounded-xl">
-      <div className="flex flex-col w-full max-w-[350px] items-center gap-12">
-        {/* Header */}
-        <header className="flex flex-col items-center justify-center gap-2 w-full">
-          <h1 className="text-h3 text-center">
-            <span className="text-neutral-900">Login to </span>
-            <span className="text-blue-500">Sprintly</span>
+    <form className={cn("flex flex-col gap-6", className)} {...props}>
+      <FieldGroup>
+        <div className="flex flex-col items-center gap-2 text-center">
+          <h1 className="text-neutral-900 text-h3">
+            Login to <span className="text-primary-500">iTask</span>
           </h1>
-          <p className="text-p-small text-neutral-400 text-center w-full">
-            Enter your username and password to Login
+          <p className="text-neutral-400 text-p-small text-balance">
+            Enter your email below to login to your account
           </p>
-        </header>
-
-        {/* Form Container */}
-        <div className="flex flex-col items-start gap-6 w-full">
-          {/* Inputs */}
-          <div className="flex flex-col items-start gap-4 w-full">
-            <Input
-              type="email"
-              placeholder="Email"
-              className="h-10 px-3 bg-white rounded-[10px] border border-neutral-200 text-p-small placeholder:text-neutral-400 focus-visible:ring-blue-500"
-            />
-
-            <div className="relative w-full">
-              <Input
-                type="password"
-                placeholder="Password"
-                className="h-10 px-3 pr-10 bg-white rounded-[10px] border border-neutral-200 text-p-small placeholder:text-neutral-400 focus-visible:ring-blue-500"
-              />
-              <EyeOff className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            </div>
-
-            {/* Actions - Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="remember"
-                  className="w-5 h-5 border-neutral-200 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
-                />
-                <Label
-                  htmlFor="remember"
-                  className="text-label-small text-neutral-400 cursor-pointer"
-                >
-                  Remember me
-                </Label>
-              </div>
-
-              <button className="text-label-small text-blue-500 hover:text-blue-600 transition-colors">
-                Forgot password?
-              </button>
-            </div>
-          </div>
-
-          {/* Button Container */}
-          <div className="flex flex-col items-start gap-6 w-full">
-            {/* Login Button */}
-            <Button className="h-10 w-full rounded-[10px] bg-blue-500 hover:bg-blue-600 text-white text-label-small font-medium transition-colors">
-              Login
-            </Button>
-
-            {/* Divider */}
-            <div className="flex items-center justify-center gap-5 w-full">
-              <Separator className="flex-1 bg-neutral-200" />
-              <span className="text-label-small text-neutral-400 whitespace-nowrap">
-                or continue with
-              </span>
-              <Separator className="flex-1 bg-neutral-200" />
-            </div>
-
-            {/* Social Login Buttons */}
-            <div className="flex items-center gap-4 w-full">
-              <Button
-                variant="outline"
-                className="h-12 flex-1 bg-white rounded-[10px] border border-neutral-200 hover:bg-neutral-100 transition-colors p-0"
-              >
-                <FcGoogle className="w-[18px] h-[18px] text-neutral-600" />
-              </Button>
-            </div>
-          </div>
         </div>
-
-        {/* Register Link */}
-        <p className="text-label-small text-center w-full">
-          <span className="text-neutral-400">Don&apos;t have account? </span>
-          <button className="text-blue-500 hover:text-blue-600 transition-colors">
-            Register
-          </button>
-        </p>
-      </div>
-    </div>
+        <Field>
+          <FieldLabel htmlFor="email" className="sr-only">
+            Email
+          </FieldLabel>
+          <Input id="email" type="email" placeholder="Email" required />
+        </Field>
+        <Field>
+          <div className="flex items-center">
+            <FieldLabel htmlFor="password" className="sr-only">
+              Password
+            </FieldLabel>
+          </div>
+          <Input
+            id="password"
+            type="password"
+            placeholder="Password"
+            required
+          />
+        </Field>
+        <a
+          href="#"
+          className="ml-auto text-sm underline-offset-4 hover:underline"
+        >
+          Forgot your password?
+        </a>
+        <Field>
+          <Button className="cursor-pointer" type="submit">
+            Login
+          </Button>
+        </Field>
+        <FieldSeparator>Or continue with</FieldSeparator>
+        <Field>
+          <Button variant="outline" type="button" className="cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path
+                d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
+                fill="currentColor"
+              />
+            </svg>
+            Login with GitHub
+          </Button>
+          <FieldDescription className="text-center">
+            Don&apos;t have an account?{" "}
+            <a href="register" className="underline underline-offset-4">
+              Sign up
+            </a>
+          </FieldDescription>
+        </Field>
+      </FieldGroup>
+    </form>
   );
-};
-
-export default LoginForm;
+}

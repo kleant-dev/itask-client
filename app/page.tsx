@@ -1,5 +1,4 @@
 /* eslint-disable @next/next/no-img-element */
-import LoginForm from "@/components/login-form";
 
 const HomePage = () => {
   return (
@@ -13,9 +12,7 @@ const HomePage = () => {
           className="h-auto w-full max-w-md object-contain"
         />
       </div>
-      <div className="flex flex-1 items-center justify-center">
-        <LoginForm />
-      </div>
+      <div className="flex flex-1 items-center justify-center"></div>
     </div>
   );
 };
