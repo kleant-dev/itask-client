@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 
-const HomePage = () => {
+const HomePages = () => {
   return (
     <div className="flex min-h-screen w-full flex-row items-center justify-between gap-8 bg-background p-8">
       <div className="flex w-[60%] items-center justify-center">
@@ -16,4 +16,4 @@ const HomePage = () => {
     </div>
   );
 };
-export default HomePage;
+export default HomePages;

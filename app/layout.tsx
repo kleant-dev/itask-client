@@ -1,3 +1,4 @@
+import { Providers } from "@/components/providers";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -8,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "iTask",
-  description: "iTask is a task management platform for companies",
+  title: "Slender",
+  description: "Slender is a task management platform for companies",
 };
 
 export default function RootLayout({
@@ -20,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${inter.className} antialiased`}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
