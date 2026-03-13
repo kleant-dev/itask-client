@@ -1,4 +1,3 @@
-// app/(app)/messages/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,48 +5,17 @@ import { ConversationList } from "@/components/messages/conversation-list";
 import { ChatWindow } from "@/components/messages/chat-window";
 import { EmptyMessageState } from "@/components/messages/empty-message-state";
 import { NewMessageModal } from "@/components/messages/new-message-modal";
-import { useWorkspaceChannels } from "@/lib/hooks/use-channels";
+import {
+  useWorkspaceChannels,
+  useWorkspaceMembers,
+} from "@/lib/hooks/use-channels";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { useUiStore } from "@/lib/stores/ui-store";
 import { startConnection } from "@/lib/services/chat-hub";
 import type { UserModel } from "@/types/models";
 import type { ChannelModel } from "@/types/message-models";
 
-// ------------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------------
-
-/** Build a stable lookup from userId → UserModel from the members arrays. */
-function buildUserMap(channels: ChannelModel[]): Map<string, UserModel> {
-  const map = new Map<string, UserModel>();
-  for (const ch of channels) {
-    for (const m of ch.members ?? []) {
-      if (m.user) map.set(m.user.id, m.user);
-    }
-  }
-  return map;
-}
-
-/** Extract the other participant from a DM channel. */
-function getOtherUser(
-  channel: ChannelModel,
-  currentUserId: string,
-  userMap: Map<string, UserModel>,
-): UserModel | undefined {
-  const member = (channel.members ?? []).find(
-    (m) => m.userId !== currentUserId,
-  );
-  if (!member) return undefined;
-  return userMap.get(member.userId) ?? member.user;
-}
-
-// ------------------------------------------------------------------
-// Page
-// ------------------------------------------------------------------
-
-const MessagesPage = () => {
+export default function MessagesPage() {
   const currentUser = useAuthStore((s) => s.user);
-  const workspaceId = useUiStore((s) => s.currentWorkspaceId);
 
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
     null,
@@ -57,62 +25,81 @@ const MessagesPage = () => {
   );
   const [newMessageOpen, setNewMessageOpen] = useState(false);
 
-  const { data, isLoading } = useWorkspaceChannels();
-  const channels = (data?.items ?? []).filter(
+  const { data: channelsData, isLoading } = useWorkspaceChannels();
+  const { data: membersData } = useWorkspaceMembers(); // ← fetch members with user info
+
+  // Build a userId → UserModel map from workspace members (has name/avatar/email)
+  const userMap = new Map<string, UserModel>();
+  for (const m of membersData?.items ?? []) {
+    if (m.user) userMap.set(m.userId, m.user as UserModel);
+  }
+
+  const channels = (channelsData?.items ?? []).filter(
     (ch) => ch.type === "DirectMessage",
   );
 
-  const userMap = buildUserMap(channels);
-
-  // Build conversation items for the sidebar list
+  // Build conversation items — look up the other user from the workspace member map
   const conversationItems = channels.flatMap((ch) => {
     if (!currentUser) return [];
-    const otherUser = getOtherUser(ch, currentUser.id, userMap);
+    // Find the other participant: the member whose userId isn't ours
+    const otherMember = (ch.members ?? []).find(
+      (m) => m.userId !== currentUser.id,
+    );
+    // Fall back to workspace member map (covers channels that don't return members inline)
+    const otherUser =
+      (otherMember?.user as UserModel | undefined) ??
+      (otherMember ? userMap.get(otherMember.userId) : undefined);
     if (!otherUser) return [];
     return [{ channel: ch, otherUser }];
   });
 
-  // Keep selectedOtherUser in sync when channel changes
+  // If we have no inline channel members (Bug 4), fall back: derive otherUser from participantHash
+  // by matching against workspace members. participantHash = sorted userId concat.
+  const conversationItemsFallback =
+    conversationItems.length === 0
+      ? channels.flatMap((ch) => {
+          if (!currentUser || !ch.participantHash) return [];
+          // participantHash contains both userIds — find the one that isn't ours
+          const otherUser = Array.from(userMap.values()).find(
+            (u) =>
+              u.id !== currentUser.id && ch.participantHash!.includes(u.id),
+          );
+          if (!otherUser) return [];
+          return [{ channel: ch, otherUser }];
+        })
+      : conversationItems;
+
   useEffect(() => {
     if (!selectedChannelId || !currentUser) return;
-    const ch = channels.find((c) => c.id === selectedChannelId);
-    if (!ch) return;
-    const other = getOtherUser(ch, currentUser.id, userMap);
-    if (other) setSelectedOtherUser(other);
-  }, [selectedChannelId, channels.length]);
+    const item = conversationItemsFallback.find(
+      (i) => i.channel.id === selectedChannelId,
+    );
+    if (item) setSelectedOtherUser(item.otherUser);
+  }, [selectedChannelId, conversationItemsFallback.length]);
 
-  // Ensure SignalR connection is live while on this page
   useEffect(() => {
     startConnection();
   }, []);
 
-  function handleSelectChannel(channelId: string) {
-    setSelectedChannelId(channelId);
-  }
+  // All workspace members except self — for the New Message modal
+  const workspaceMembers = Array.from(userMap.values()).filter(
+    (u) => u.id !== currentUser?.id,
+  );
 
   function handleChannelCreated(channelId: string, otherUser: UserModel) {
     setSelectedChannelId(channelId);
     setSelectedOtherUser(otherUser);
   }
 
-  // Workspace members for the new-message modal (derived from userMap)
-  const workspaceMembers = Array.from(userMap.values()).filter(
-    (u) => u.id !== currentUser?.id,
-  );
-
   return (
-    // Override the parent layout's overflow/padding for the full-bleed split layout
     <div className="-m-6 flex h-full overflow-hidden">
-      {/* Left panel – conversation list */}
       <ConversationList
-        items={conversationItems}
+        items={conversationItemsFallback}
         selectedChannelId={selectedChannelId}
-        onSelect={handleSelectChannel}
+        onSelect={setSelectedChannelId}
         onNewMessage={() => setNewMessageOpen(true)}
         isLoading={isLoading}
       />
-
-      {/* Right panel – chat or empty state */}
       {selectedChannelId && selectedOtherUser ? (
         <ChatWindow
           key={selectedChannelId}
@@ -122,8 +109,6 @@ const MessagesPage = () => {
       ) : (
         <EmptyMessageState />
       )}
-
-      {/* New message modal */}
       <NewMessageModal
         open={newMessageOpen}
         onOpenChange={setNewMessageOpen}
@@ -132,6 +117,4 @@ const MessagesPage = () => {
       />
     </div>
   );
-};
-
-export default MessagesPage;
+}

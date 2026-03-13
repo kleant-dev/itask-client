@@ -31,6 +31,7 @@ export interface WorkspaceMemberModel {
   role: WorkspaceRole;
   invitedByUserId?: string | null;
   joinedAtUtc: string;
+  user?: UserModel | null;
 }
 
 export type ProjectStatus = "Active" | "OnHold" | "Completed" | "Archived";
