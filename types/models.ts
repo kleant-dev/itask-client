@@ -51,7 +51,12 @@ export interface ProjectModel {
   archivedAtUtc?: string | null;
 }
 
-export type TaskStatus = "Todo" | "InProgress" | "InReview" | "Done" | "Archived";
+export type TaskStatus =
+  | "Todo"
+  | "InProgress"
+  | "InReview"
+  | "Done"
+  | "Archived";
 
 export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
 
@@ -73,4 +78,3 @@ export interface TaskModel {
   updatedAtUtc?: string | null;
   completedAtUtc?: string | null;
 }
-

@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: "https://localhost:7001/api/:path*",
       },
+      {
+        source: "/hubs/:path*",
+        destination: "https://localhost:7001/hubs/:path*",
+      },
     ];
   },
 };
