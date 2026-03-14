@@ -1,9 +1,7 @@
 // components/messages/message-input.tsx
 "use client";
-
 import { useState, useRef, KeyboardEvent } from "react";
-import { Send, Paperclip, Smile } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Mic, Smile, Paperclip, Send } from "lucide-react";
 import * as hub from "@/lib/services/chat-hub";
 
 interface MessageInputProps {
@@ -31,7 +29,6 @@ export function MessageInput({
   async function handleSend() {
     const body = value.trim();
     if (!body || sending || disabled) return;
-
     setSending(true);
     try {
       await hub.sendMessage(channelId, body);
@@ -58,68 +55,64 @@ export function MessageInput({
   const canSend = value.trim().length > 0 && !sending && !disabled;
 
   return (
-    <div className="border-t border-neutral-200 bg-white px-5 py-4">
+    /* 48px tall input bar matching Figma */
+    <div className="px-3 pb-3">
       <div
-        className={cn(
-          "flex items-end gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 transition-[border-color,box-shadow]",
-          "focus-within:border-[#266df0] focus-within:ring-2 focus-within:ring-[#266df0]/10",
-        )}
+        className="flex items-center justify-between gap-3 bg-white rounded-full border border-[#dde3ee] px-4"
+        style={{ minHeight: 48, borderRadius: 100 }}
       >
-        {/* Attachment */}
-        <button
-          type="button"
-          className="mb-0.5 flex-shrink-0 text-neutral-400 hover:text-neutral-600 transition-colors"
-        >
-          <Paperclip className="h-5 w-5" strokeWidth={1.5} />
-        </button>
-
         {/* Textarea */}
         <textarea
           ref={textareaRef}
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder="Write a message..."
-          disabled={disabled}
+          placeholder="Type any message..."
           rows={1}
-          className="flex-1 resize-none bg-transparent text-[14px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none disabled:opacity-50"
-          style={{ maxHeight: 120, overflowY: "auto" }}
+          disabled={disabled}
+          className="flex-1 resize-none bg-transparent text-[12px] text-[#111625] placeholder:text-[#8796af] focus:outline-none leading-5"
+          style={{ paddingTop: 14, paddingBottom: 14, maxHeight: 120 }}
         />
 
-        {/* Emoji */}
-        <button
-          type="button"
-          className="mb-0.5 flex-shrink-0 text-neutral-400 hover:text-neutral-600 transition-colors"
-        >
-          <Smile className="h-5 w-5" strokeWidth={1.5} />
-        </button>
-
-        {/* Send */}
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={!canSend}
-          className={cn(
-            "mb-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-all",
-            canSend
-              ? "bg-[#266df0] text-white hover:bg-[#1a5dd4]"
-              : "cursor-not-allowed bg-neutral-200 text-neutral-400",
-          )}
-        >
-          <Send className="h-4 w-4" strokeWidth={1.5} />
-        </button>
+        {/* Action icons + send button */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Mic */}
+          <button
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-neutral-100 transition-colors"
+            title="Voice"
+          >
+            <Mic style={{ width: 14, height: 14 }} strokeWidth={1.5} />
+          </button>
+          {/* Emoji */}
+          <button
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-neutral-100 transition-colors"
+            title="Emoji"
+          >
+            <Smile style={{ width: 14, height: 14 }} strokeWidth={1.5} />
+          </button>
+          {/* Attachment */}
+          <button
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-neutral-100 transition-colors"
+            title="Attach"
+          >
+            <Paperclip style={{ width: 14, height: 14 }} strokeWidth={1.5} />
+          </button>
+          {/* Send */}
+          <button
+            onClick={handleSend}
+            disabled={!canSend}
+            className="flex items-center justify-center rounded-full text-white transition-colors disabled:opacity-40"
+            title="Send"
+            style={{
+              width: 32,
+              height: 32,
+              backgroundColor: canSend ? "#266df0" : "#266df0",
+            }}
+          >
+            <Send style={{ width: 16, height: 16 }} strokeWidth={1.5} />
+          </button>
+        </div>
       </div>
-      <p className="mt-1.5 text-[11px] text-neutral-400">
-        Press{" "}
-        <kbd className="rounded border border-neutral-200 bg-white px-1 py-0.5 font-mono text-[10px]">
-          Enter
-        </kbd>{" "}
-        to send,{" "}
-        <kbd className="rounded border border-neutral-200 bg-white px-1 py-0.5 font-mono text-[10px]">
-          Shift+Enter
-        </kbd>{" "}
-        for new line
-      </p>
     </div>
   );
 }
