@@ -27,9 +27,12 @@ let connection: HubConnection | null = null;
 
 function buildConnection(): HubConnection {
   return new HubConnectionBuilder()
-    .withUrl("/hubs/chat", {
-      accessTokenFactory: () => useAuthStore.getState().accessToken ?? "",
-    })
+    .withUrl(
+      `${process.env.NEXT_PUBLIC_HUB_URL ?? "http://localhost:5003"}/hubs/chat`,
+      {
+        accessTokenFactory: () => useAuthStore.getState().accessToken ?? "",
+      },
+    )
     .withAutomaticReconnect([0, 1000, 5000, 10000])
     .configureLogging(LogLevel.Warning)
     .build();

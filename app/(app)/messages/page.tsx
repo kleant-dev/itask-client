@@ -69,6 +69,8 @@ export default function MessagesPage() {
         })
       : conversationItems;
 
+  const accessToken = useAuthStore((s) => s.accessToken);
+
   useEffect(() => {
     if (!selectedChannelId || !currentUser) return;
     const item = conversationItemsFallback.find(
@@ -78,8 +80,8 @@ export default function MessagesPage() {
   }, [selectedChannelId, conversationItemsFallback.length]);
 
   useEffect(() => {
-    startConnection();
-  }, []);
+    if (accessToken) startConnection();
+  }, [accessToken]);
 
   // All workspace members except self — for the New Message modal
   const workspaceMembers = Array.from(userMap.values()).filter(
