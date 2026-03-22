@@ -194,6 +194,7 @@ function TaskCardVisual({
   );
 }
 
+/** Droppable column shell — must wrap SortableContext, not sit inside it. */
 function ColumnDropArea({
   columnId,
   children,
@@ -234,24 +235,27 @@ function SortableTaskCard({ task }: { task: TaskModel }) {
   const dndStyle: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
+    touchAction: "none",
   };
 
   return (
     <div
       ref={setNodeRef}
       style={dndStyle}
-      className={cn("relative", isDragging && "z-10")}
+      className={cn(
+        "relative rounded-[12px] outline-none",
+        isDragging && "z-10 opacity-40",
+      )}
+      {...attributes}
+      {...listeners}
     >
-      <div
+      <TaskCardVisual
+        task={task}
         className={cn(
-          "cursor-grab touch-none rounded-[12px] active:cursor-grabbing",
-          isDragging && "opacity-40",
+          "cursor-grab active:cursor-grabbing",
+          isDragging && "pointer-events-none",
         )}
-        {...attributes}
-        {...listeners}
-      >
-        <TaskCardVisual task={task} />
-      </div>
+      />
     </div>
   );
 }
@@ -303,7 +307,8 @@ export function ProjectKanban({ tasks, priorityFilter }: ProjectKanbanProps) {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 6, tolerance: 5 },
+      // Small threshold so drag starts reliably (distance-only can feel “stuck”).
+      activationConstraint: { distance: 4 },
     }),
   );
 
@@ -489,18 +494,18 @@ export function ProjectKanban({ tasks, priorityFilter }: ProjectKanbanProps) {
                   {ids.length}
                 </span>
               </div>
-              <SortableContext
-                items={ids}
-                strategy={verticalListSortingStrategy}
-              >
-                <ColumnDropArea columnId={col.status}>
+              <ColumnDropArea columnId={col.status}>
+                <SortableContext
+                  items={ids}
+                  strategy={verticalListSortingStrategy}
+                >
                   {ids.map((id) => {
                     const task = tasksById.get(id);
                     if (!task) return null;
                     return <SortableTaskCard key={id} task={task} />;
                   })}
-                </ColumnDropArea>
-              </SortableContext>
+                </SortableContext>
+              </ColumnDropArea>
             </div>
           );
         })}
