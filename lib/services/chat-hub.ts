@@ -8,6 +8,58 @@ import {
 import { useAuthStore } from "@/lib/stores/auth-store";
 import type { MessageModel } from "@/types/message-models";
 
+// Call-related types used by the WebRTC layer
+export type CallKind = "audio" | "video";
+
+export interface StartCallPayload {
+  callId: string;
+  channelId: string;
+  fromUserId: string;
+  toUserId: string;
+  kind: CallKind;
+  sdp: RTCSessionDescriptionInit;
+}
+
+export interface AcceptCallPayload {
+  callId: string;
+  channelId: string;
+}
+
+export interface RejectCallPayload {
+  callId: string;
+  channelId: string;
+}
+
+export interface EndCallPayload {
+  callId: string;
+  channelId: string;
+}
+
+export interface IncomingCallPayload {
+  callId: string;
+  channelId: string;
+  fromUserId: string;
+  toUserId: string;
+  kind: CallKind;
+}
+
+export type CallSignalType = "offer" | "answer" | "ice-candidate";
+
+export interface CallSignal {
+  callId: string;
+  fromUserId: string;
+  toUserId: string;
+  type: CallSignalType;
+  data: any;
+}
+
+export interface OutgoingCallSignal {
+  callId: string;
+  toUserId: string;
+  type: CallSignalType;
+  data: any;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type MessageHandler = (message: MessageModel) => void;
@@ -20,6 +72,10 @@ export type TypingHandler = (data: {
   userId: string;
   channelId: string;
 }) => void;
+
+export type IncomingCallHandler = (data: IncomingCallPayload) => void;
+export type CallEndedHandler = (data: EndCallPayload) => void;
+export type CallSignalHandler = (data: CallSignal) => void;
 
 // ── Singleton hub connection ──────────────────────────────────────────────────
 
@@ -105,6 +161,33 @@ export async function sendTyping(channelId: string): Promise<void> {
   }
 }
 
+// ── Call control (signalling only, media is WebRTC in the client) ──────────────
+
+export async function startCall(payload: StartCallPayload): Promise<void> {
+  await startConnection();
+  await getConnection().invoke("StartCall", payload);
+}
+
+export async function acceptCall(payload: AcceptCallPayload): Promise<void> {
+  await startConnection();
+  await getConnection().invoke("AcceptCall", payload);
+}
+
+export async function rejectCall(payload: RejectCallPayload): Promise<void> {
+  await startConnection();
+  await getConnection().invoke("RejectCall", payload);
+}
+
+export async function endCall(payload: EndCallPayload): Promise<void> {
+  await startConnection();
+  await getConnection().invoke("EndCall", payload);
+}
+
+export async function sendCallSignal(payload: OutgoingCallSignal): Promise<void> {
+  await startConnection();
+  await getConnection().invoke("CallSignal", payload);
+}
+
 // ── Event subscriptions ───────────────────────────────────────────────────────
 
 export function onReceiveMessage(handler: MessageHandler): () => void {
@@ -129,4 +212,22 @@ export function onUserTyping(handler: TypingHandler): () => void {
   const conn = getConnection();
   conn.on("UserTyping", handler);
   return () => conn.off("UserTyping", handler);
+}
+
+export function onIncomingCall(handler: IncomingCallHandler): () => void {
+  const conn = getConnection();
+  conn.on("IncomingCall", handler);
+  return () => conn.off("IncomingCall", handler);
+}
+
+export function onCallEnded(handler: CallEndedHandler): () => void {
+  const conn = getConnection();
+  conn.on("CallEnded", handler);
+  return () => conn.off("CallEnded", handler);
+}
+
+export function onCallSignal(handler: CallSignalHandler): () => void {
+  const conn = getConnection();
+  conn.on("CallSignal", handler);
+  return () => conn.off("CallSignal", handler);
 }

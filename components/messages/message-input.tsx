@@ -55,13 +55,13 @@ export function MessageInput({
   const canSend = value.trim().length > 0 && !sending && !disabled;
 
   return (
-    /* 48px tall input bar matching Figma */
-    <div className="px-3 pb-3">
+    // Figma: pill-shaped input row, 48px height, sits inside chat-window above bottom edge
+    <div className="px-3 pb-3 pt-2 shrink-0">
       <div
-        className="flex items-center justify-between gap-3 bg-white rounded-full border border-[#dde3ee] px-4"
+        className="flex items-center gap-2 bg-white border border-[#dde3ee] px-4"
         style={{ minHeight: 48, borderRadius: 100 }}
       >
-        {/* Textarea */}
+        {/* Text area — grows up to 3 lines */}
         <textarea
           ref={textareaRef}
           value={value}
@@ -74,42 +74,43 @@ export function MessageInput({
           style={{ paddingTop: 14, paddingBottom: 14, maxHeight: 120 }}
         />
 
-        {/* Action icons + send button */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Icon actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Mic */}
           <button
-            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-neutral-100 transition-colors"
-            title="Voice"
+            title="Voice message"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-[#f7f9fb] transition-colors"
           >
             <Mic style={{ width: 14, height: 14 }} strokeWidth={1.5} />
           </button>
           {/* Emoji */}
           <button
-            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-neutral-100 transition-colors"
             title="Emoji"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-[#f7f9fb] transition-colors"
           >
             <Smile style={{ width: 14, height: 14 }} strokeWidth={1.5} />
           </button>
           {/* Attachment */}
           <button
-            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-neutral-100 transition-colors"
-            title="Attach"
+            title="Attach file"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-[#f7f9fb] transition-colors"
           >
             <Paperclip style={{ width: 14, height: 14 }} strokeWidth={1.5} />
           </button>
-          {/* Send */}
+          {/* Send — blue circle, always visible, dims when empty */}
           <button
             onClick={handleSend}
             disabled={!canSend}
-            className="flex items-center justify-center rounded-full text-white transition-colors disabled:opacity-40"
             title="Send"
+            className="flex items-center justify-center rounded-full text-white transition-opacity"
             style={{
               width: 32,
               height: 32,
-              backgroundColor: canSend ? "#266df0" : "#266df0",
+              backgroundColor: "#266df0",
+              opacity: canSend ? 1 : 0.4,
             }}
           >
-            <Send style={{ width: 16, height: 16 }} strokeWidth={1.5} />
+            <Send style={{ width: 15, height: 15 }} strokeWidth={1.5} />
           </button>
         </div>
       </div>

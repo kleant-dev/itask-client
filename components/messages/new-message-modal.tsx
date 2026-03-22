@@ -1,17 +1,8 @@
 // components/messages/new-message-modal.tsx
 "use client";
-
 import { useState } from "react";
-import { Search, X } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Search } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetOrCreateDm } from "@/lib/hooks/use-channels";
 import type { UserModel } from "@/types/models";
 
@@ -20,6 +11,15 @@ interface NewMessageModalProps {
   onOpenChange: (open: boolean) => void;
   workspaceMembers: UserModel[];
   onChannelCreated: (channelId: string, otherUser: UserModel) => void;
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
 export function NewMessageModal({
@@ -44,39 +44,78 @@ export function NewMessageModal({
     onChannelCreated(channel.id, user);
   }
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[500px] max-w-[calc(100vw-48px)] gap-0 rounded-2xl p-0">
-        <DialogHeader className="border-b border-neutral-100 px-6 py-5">
-          <DialogTitle className="text-[18px] font-semibold text-neutral-900">
-            New Message
-          </DialogTitle>
-          <DialogDescription className="text-[13px] text-neutral-500">
-            Search for a workspace member to start a conversation.
-          </DialogDescription>
-        </DialogHeader>
+    // Full-screen backdrop
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center"
+      style={{ paddingTop: 100 }}
+      onClick={() => onOpenChange(false)}
+    >
+      {/* Dim overlay */}
+      <div className="absolute inset-0 bg-black/20" />
+
+      {/*
+        Figma: "new-message-popup" — 300×416, white, r16, padding 16
+        Title: "New Message" 16px/500
+        Search: 32px tall, r10, placeholder "Search name or email"
+        List: 7 members × 32px rows, avatar 32px + name 12px/500
+      */}
+      <div
+        className="relative flex flex-col bg-white"
+        style={{
+          width: 300,
+          borderRadius: 16,
+          padding: 16,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+          maxHeight: 416,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Title */}
+        <p
+          className="font-medium text-[#111625] mb-3"
+          style={{ fontSize: 16, lineHeight: "24px" }}
+        >
+          New Message
+        </p>
 
         {/* Search */}
-        <div className="border-b border-neutral-100 px-6 py-4">
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
-              strokeWidth={1.5}
-            />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search members…"
-              autoFocus
-              className="h-10 w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-9 pr-3 text-[14px] text-neutral-900 placeholder:text-neutral-400 focus:border-[#266df0] focus:outline-none focus:ring-2 focus:ring-[#266df0]/10"
-            />
-          </div>
+        <div className="relative mb-3">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8796af]"
+            style={{ width: 14, height: 14 }}
+            strokeWidth={1.5}
+          />
+          <input
+            autoFocus
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name or email"
+            className="w-full rounded-[10px] border bg-white pl-8 pr-10 text-[12px] text-[#111625] placeholder:text-[#8796af] focus:border-[#266df0] focus:outline-none focus:ring-2 focus:ring-[#266df0]/10"
+            style={{ height: 32, borderColor: "#dde3ee" }}
+          />
+          {/* ⌘+K badge */}
+          <span
+            className="absolute right-2 top-1/2 -translate-y-1/2 select-none text-[11px] text-[#596881]"
+            style={{
+              backgroundColor: "#f7f9fb",
+              borderRadius: 6,
+              padding: "2px 5px",
+            }}
+          >
+            ⌘+K
+          </span>
         </div>
 
-        {/* Members list */}
-        <div className="max-h-[320px] overflow-y-auto py-2">
+        {/* Member list */}
+        <div
+          className="flex flex-col overflow-y-auto"
+          style={{ maxHeight: 296 }}
+        >
           {filtered.length === 0 ? (
-            <p className="px-6 py-6 text-center text-[13px] text-neutral-500">
+            <p className="py-6 text-center text-[12px] text-[#8796af]">
               No members found.
             </p>
           ) : (
@@ -85,37 +124,29 @@ export function NewMessageModal({
                 key={user.id}
                 onClick={() => handleSelect(user)}
                 disabled={isPending}
-                className="flex w-full items-center gap-3 px-6 py-3 text-left hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                className="flex items-center gap-3 rounded-lg px-2 text-left transition-colors hover:bg-[#f7f9fb] disabled:opacity-50"
+                style={{ height: 32 }}
               >
-                <Avatar className="h-9 w-9">
+                <Avatar style={{ width: 32, height: 32, flexShrink: 0 }}>
+                  <AvatarImage src={user.avatarUrl ?? undefined} />
                   <AvatarFallback
-                    className="text-[13px] font-medium text-white"
+                    className="text-[11px] font-medium text-white"
                     style={{ backgroundColor: user.avatarColor ?? "#266df0" }}
                   >
-                    {user.name.slice(0, 2).toUpperCase()}
+                    {getInitials(user.name)}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <p className="text-[14px] font-medium text-neutral-900">
-                    {user.name}
-                  </p>
-                  <p className="text-[12px] text-neutral-500">{user.email}</p>
-                </div>
+                <span
+                  className="truncate font-medium"
+                  style={{ fontSize: 12, color: "#111625" }}
+                >
+                  {isPending ? "Opening…" : user.name}
+                </span>
               </button>
             ))
           )}
         </div>
-
-        <div className="border-t border-neutral-100 px-6 py-4">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

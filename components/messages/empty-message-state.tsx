@@ -1,80 +1,90 @@
 // components/messages/empty-message-state.tsx
-
+// Figma screen 50 "Message" — message-box shows centered illustration + text
+// Illustration: compose-email style SVG (blue envelope/document)
+// Title: "Sprintly Message" 24px semibold
+// Subtitle: "Select a message to view." 14px regular #596881
 export function EmptyMessageState() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-white text-center">
-      {/* Illustration matching Figma design */}
+    <div
+      className="flex flex-1 flex-col items-center justify-center gap-4 bg-white text-center"
+      style={{ borderRadius: 24 }}
+    >
+      {/* Illustration — matches the compose-email graphic in the Figma */}
       <svg
         viewBox="0 0 120 120"
         fill="none"
-        className="h-32 w-32 opacity-70"
         xmlns="http://www.w3.org/2000/svg"
+        style={{ width: 120, height: 120 }}
       >
-        {/* Chat bubbles illustration */}
-        <rect x="10" y="30" width="70" height="44" rx="12" fill="#e9f0fe" />
+        {/* Background circle */}
+        <circle cx="60" cy="60" r="52" fill="#eaf0fe" />
+        {/* Envelope body */}
         <rect
-          x="10"
-          y="30"
-          width="70"
-          height="44"
-          rx="12"
+          x="22"
+          y="38"
+          width="76"
+          height="52"
+          rx="8"
+          fill="#266df0"
+          fillOpacity="0.12"
+        />
+        <rect
+          x="22"
+          y="38"
+          width="76"
+          height="52"
+          rx="8"
           stroke="#266df0"
           strokeWidth="1.5"
           strokeOpacity="0.3"
         />
-        <rect
-          x="18"
-          y="42"
-          width="40"
-          height="7"
-          rx="3.5"
-          fill="#266df0"
-          fillOpacity="0.3"
+        {/* Envelope flap */}
+        <path
+          d="M22 46l38 26 38-26"
+          stroke="#266df0"
+          strokeWidth="1.5"
+          strokeOpacity="0.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
+        {/* Inner lines (document preview) */}
         <rect
-          x="18"
-          y="55"
+          x="36"
+          y="62"
           width="28"
-          height="7"
-          rx="3.5"
+          height="4"
+          rx="2"
           fill="#266df0"
-          fillOpacity="0.2"
+          fillOpacity="0.25"
         />
-        <path
-          d="M20 74L16 86L30 78"
-          fill="#e9f0fe"
-          stroke="#266df0"
-          strokeWidth="1.5"
-          strokeOpacity="0.3"
-          strokeLinejoin="round"
-        />
-
-        <rect x="45" y="58" width="64" height="40" rx="12" fill="#f7f9fb" />
         <rect
-          x="45"
-          y="58"
-          width="64"
-          height="40"
-          rx="12"
-          stroke="#c5cfdd"
-          strokeWidth="1.5"
+          x="36"
+          y="70"
+          width="20"
+          height="4"
+          rx="2"
+          fill="#266df0"
+          fillOpacity="0.18"
         />
-        <rect x="53" y="70" width="36" height="7" rx="3.5" fill="#c5cfdd" />
-        <rect x="53" y="81" width="24" height="7" rx="3.5" fill="#dee4ee" />
-        <path
-          d="M95 98L100 110L86 103"
-          fill="#f7f9fb"
-          stroke="#c5cfdd"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
+        {/* Sparkle dots */}
+        <circle cx="96" cy="34" r="4" fill="#eaf0fe" />
+        <circle cx="26" cy="32" r="2.5" fill="#eaf0fe" />
+        <circle cx="100" cy="56" r="2" fill="#eaf0fe" />
       </svg>
 
+      {/* Text */}
       <div>
-        <h3 className="text-[24px] font-semibold text-neutral-900">
+        <h3
+          className="font-semibold text-[#111625]"
+          style={{
+            fontSize: 24,
+            lineHeight: "32px",
+            fontFamily: "'Inter Display', Inter, sans-serif",
+          }}
+        >
           Sprintly Message
         </h3>
-        <p className="mt-1 text-[14px] text-neutral-500">
+        <p className="mt-1 text-[14px] text-[#596881]">
           Select a message to view.
         </p>
       </div>

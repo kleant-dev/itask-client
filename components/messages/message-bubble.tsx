@@ -10,9 +10,10 @@ import * as hub from "@/lib/services/chat-hub";
 
 interface MessageBubbleProps {
   message: MessageModel;
-  author?: UserModel;
+  author?: UserModel; // defined when the message is from the other user
   isOwn: boolean;
-  showAvatar?: boolean;
+  showAvatar?: boolean; // first bubble in a consecutive run
+  deliveryStatus?: "sent" | "read";
 }
 
 function formatTime(iso: string) {
@@ -37,6 +38,7 @@ export function MessageBubble({
   author,
   isOwn,
   showAvatar = true,
+  deliveryStatus,
 }: MessageBubbleProps) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(message.body);
@@ -52,10 +54,6 @@ export function MessageBubble({
     setEditing(false);
   }
 
-  async function handleDelete() {
-    await hub.deleteMessage(message.id);
-  }
-
   const name = author?.name ?? "You";
 
   return (
@@ -65,7 +63,7 @@ export function MessageBubble({
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      {/* Avatar (only for other user, first in a run) */}
+      {/* ── Avatar (received only, first in run) ─── */}
       {!isOwn ? (
         showAvatar ? (
           <Avatar
@@ -84,7 +82,7 @@ export function MessageBubble({
         )
       ) : null}
 
-      {/* Bubble column */}
+      {/* ── Bubble column ─────────────────────────── */}
       <div
         className={cn(
           "flex flex-col gap-1",
@@ -93,6 +91,7 @@ export function MessageBubble({
         style={{ maxWidth: "65%" }}
       >
         {editing ? (
+          /* Edit mode */
           <div className="flex flex-col gap-1.5 w-full">
             <textarea
               value={editValue}
@@ -130,14 +129,16 @@ export function MessageBubble({
             </div>
           </div>
         ) : (
+          /* Bubble */
+          // Figma:
+          //   received → white bg (#ffffff), rounded-xl, bottom-left corner = 4px
+          //   sent     → blue-tint bg (#e9f0fe), rounded-xl, bottom-right corner = 4px
           <div
             className="px-4 py-2.5 text-[12px] leading-relaxed"
             style={{
-              // Figma: received = white bg, sent = #e9f0fe bg
               backgroundColor: isOwn ? "#e9f0fe" : "#ffffff",
               color: "#111625",
               borderRadius: 12,
-              // Figma shows flat corner on the tail side
               ...(isOwn
                 ? { borderBottomRightRadius: 4 }
                 : { borderBottomLeftRadius: 4 }),
@@ -152,27 +153,26 @@ export function MessageBubble({
           </div>
         )}
 
-        {/* Timestamp row */}
+        {/* Timestamp + double-check (shown on first bubble in a run) */}
         {showAvatar && !editing && (
           <div
             className={cn(
               "flex items-center gap-1",
-              isOwn ? "flex-row-reverse" : "",
+              isOwn && "flex-row-reverse",
             )}
           >
             {isOwn && (
-              /* double-check */
               <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
                 <path
                   d="M2 11l5 5L18 4"
-                  stroke="#8796af"
+                  stroke={deliveryStatus === "read" ? "#266df0" : "#8796af"}
                   strokeWidth="1.6"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
                 <path
                   d="M8 11l5 5"
-                  stroke="#8796af"
+                  stroke={deliveryStatus === "read" ? "#266df0" : "#8796af"}
                   strokeWidth="1.6"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -186,25 +186,25 @@ export function MessageBubble({
         )}
       </div>
 
-      {/* Edit/delete actions — own messages only */}
+      {/* ── Edit / delete hover actions (own messages only) ── */}
       {isOwn && !editing && (
         <div
           className={cn(
-            "flex items-center gap-1 transition-opacity mb-1",
+            "flex items-center gap-1 mb-1 transition-opacity",
             showActions ? "opacity-100" : "opacity-0",
           )}
         >
           <button
             onClick={() => setEditing(true)}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-[#8796af] hover:bg-white hover:text-[#596881] transition-colors"
             title="Edit"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[#8796af] hover:bg-white hover:text-[#596881] transition-colors"
           >
             <Pencil style={{ width: 13, height: 13 }} />
           </button>
           <button
-            onClick={handleDelete}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-[#8796af] hover:bg-white hover:text-[#df1c41] transition-colors"
+            onClick={() => hub.deleteMessage(message.id)}
             title="Delete"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[#8796af] hover:bg-white hover:text-[#df1c41] transition-colors"
           >
             <Trash2 style={{ width: 13, height: 13 }} />
           </button>
