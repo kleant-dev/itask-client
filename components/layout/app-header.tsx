@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Settings, ChevronDown, Search } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Bell, Settings, ChevronDown, Search, Folder } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -10,7 +11,14 @@ import { ProfileDropdown } from "@/components/layout/profile-dropdown";
 import { SearchModal } from "@/components/search/search-modal";
 
 export function AppHeader() {
+  const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
+
+  const headerLabel =
+    pathname === "/projects" || pathname?.startsWith("/projects/")
+      ? "Projects"
+      : "Home";
+  const isProjects = headerLabel === "Projects";
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -44,21 +52,26 @@ export function AppHeader() {
       <header className="flex h-14 items-center justify-between rounded-lg bg-white px-6">
         {/* Left — page label */}
         <div className="flex items-center gap-2">
-          {/* Home icon */}
-          <svg
-            className="h-5 w-5 text-[#596881]"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-            />
-          </svg>
-          <span className="text-[14px] font-medium text-[#111625]">Home</span>
+          {isProjects ? (
+            <Folder className="h-5 w-5 text-[#596881]" strokeWidth={1.5} />
+          ) : (
+            <svg
+              className="h-5 w-5 text-[#596881]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+              />
+            </svg>
+          )}
+          <span className="text-[14px] font-medium text-[#111625]">
+            {headerLabel}
+          </span>
         </div>
 
         {/* Right */}

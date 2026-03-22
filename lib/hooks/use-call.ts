@@ -125,6 +125,7 @@ export function useCall({
           );
           setPhase("in-call");
         } else if (signal.type === "ice-candidate" && signal.data) {
+          if (!pc) return;
           await pc.addIceCandidate(new RTCIceCandidate(signal.data));
         }
       } catch (err) {

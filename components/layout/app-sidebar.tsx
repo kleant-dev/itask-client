@@ -26,6 +26,7 @@ import {
 import { useWorkspaces } from "@/lib/hooks/use-workspaces";
 import { useWorkspaceProjects } from "@/lib/hooks/use-projects";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 
 const menuItems = [
   { icon: Home, label: "Home", href: "/home" },
@@ -34,6 +35,7 @@ const menuItems = [
 ];
 
 export function AppSidebar() {
+  const [createProjectOpen, setCreateProjectOpen] = React.useState(false);
   const pathname = usePathname();
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
@@ -159,13 +161,18 @@ export function AppSidebar() {
         {/* Projects Section */}
         <div className="flex-1 mb-4">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-subheading-xsmall text-neutral-400">
+            <Link
+              href="/projects"
+              className="text-subheading-xsmall text-neutral-400 hover:text-neutral-600"
+            >
               PROJECTS
-            </div>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
               className="h-5 w-5 text-neutral-500 hover:text-neutral-700"
+              onClick={() => setCreateProjectOpen(true)}
+              aria-label="New project"
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -242,6 +249,12 @@ export function AppSidebar() {
           </Button>
         </div>
       </div>
+
+      <CreateProjectDialog
+        open={createProjectOpen}
+        onOpenChange={setCreateProjectOpen}
+        workspaceId={activeWorkspace?.id}
+      />
     </aside>
   );
 }
