@@ -111,8 +111,19 @@ export async function startConnection(): Promise<void> {
 }
 
 export async function stopConnection(): Promise<void> {
-  if (connection?.state === HubConnectionState.Connected) {
-    await connection.stop();
+  if (!connection) return;
+
+  try {
+    if (
+      connection.state === HubConnectionState.Connected ||
+      connection.state === HubConnectionState.Reconnecting
+    ) {
+      await connection.stop();
+    }
+  } catch (err) {
+    console.error("[SignalR] Failed to stop connection:", err);
+  } finally {
+    connection = null;
   }
 }
 
@@ -183,7 +194,9 @@ export async function endCall(payload: EndCallPayload): Promise<void> {
   await getConnection().invoke("EndCall", payload);
 }
 
-export async function sendCallSignal(payload: OutgoingCallSignal): Promise<void> {
+export async function sendCallSignal(
+  payload: OutgoingCallSignal,
+): Promise<void> {
   await startConnection();
   await getConnection().invoke("CallSignal", payload);
 }

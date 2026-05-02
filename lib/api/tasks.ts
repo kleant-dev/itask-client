@@ -1,12 +1,7 @@
+// lib/api/tasks.ts
 import { apiClient } from "./client";
 import type { TaskModel, TaskStatus, TaskPriority } from "@/types/models";
 import type { PagedResponse } from "@/types/api";
-import {
-  normalizeTask,
-  taskPriorityToApiBody,
-  taskStatusToApiBody,
-  taskStatusToApiQuery,
-} from "./task-normalize";
 
 export interface CreateTaskRequest {
   projectId: string;
@@ -22,7 +17,6 @@ export interface CreateTaskRequest {
 }
 
 export const tasksApi = {
-  // Get all tasks in a workspace with optional filtering
   getWorkspaceTasks: async (
     workspaceId: string,
     params?: {
@@ -30,35 +24,23 @@ export const tasksApi = {
       pageSize?: number;
       sort?: string;
       status?: TaskStatus;
+      projectId?: string;
     },
   ): Promise<PagedResponse<TaskModel>> => {
-    const response = await apiClient.get<PagedResponse<unknown>>(
+    const response = await apiClient.get<PagedResponse<TaskModel>>(
       `/workspaces/${workspaceId}/tasks`,
-      {
-        params: {
-          ...params,
-          status: params?.status
-            ? taskStatusToApiQuery(params.status)
-            : undefined,
-        },
-      },
+      { params },
     );
-    const d = response.data as PagedResponse<unknown>;
-    return {
-      ...d,
-      items: (d.items ?? []).map((item) => normalizeTask(item)),
-    };
+    return response.data;
   },
 
-  // Get single task
   getById: async (taskId: string): Promise<TaskModel> => {
-    const response = await apiClient.get<unknown>(`/tasks/${taskId}`);
-    return normalizeTask(response.data);
+    const response = await apiClient.get<TaskModel>(`/tasks/${taskId}`);
+    return response.data;
   },
 
-  // Create task
   create: async (data: CreateTaskRequest): Promise<TaskModel> => {
-    const body = {
+    const response = await apiClient.post<TaskModel>("/tasks", {
       projectId: data.projectId,
       workspaceId: data.workspaceId,
       title: data.title,
@@ -67,15 +49,13 @@ export const tasksApi = {
       dueDate: data.dueDate,
       scheduledAt: data.scheduledAt,
       durationMinutes: data.durationMinutes,
-      status: taskStatusToApiBody(data.status ?? "Todo"),
-      priority: taskPriorityToApiBody(data.priority ?? "Medium"),
+      status: data.status ?? "Todo",
+      priority: data.priority ?? "Medium",
       sortOrder: 0,
-    };
-    const response = await apiClient.post<unknown>("/tasks", body);
-    return normalizeTask(response.data);
+    });
+    return response.data;
   },
 
-  // Update task
   update: async (
     taskId: string,
     data: Partial<CreateTaskRequest> & {
@@ -90,18 +70,15 @@ export const tasksApi = {
     if (data.scheduledAt !== undefined) body.scheduledAt = data.scheduledAt;
     if (data.durationMinutes !== undefined)
       body.durationMinutes = data.durationMinutes;
-    if (data.status !== undefined)
-      body.status = taskStatusToApiBody(data.status);
-    if (data.priority !== undefined)
-      body.priority = taskPriorityToApiBody(data.priority);
+    if (data.status !== undefined) body.status = data.status;
+    if (data.priority !== undefined) body.priority = data.priority;
     if (data.completedAtUtc !== undefined)
       body.completedAtUtc = data.completedAtUtc;
 
-    const response = await apiClient.patch<unknown>(`/tasks/${taskId}`, body);
-    return normalizeTask(response.data);
+    const response = await apiClient.patch<TaskModel>(`/tasks/${taskId}`, body);
+    return response.data;
   },
 
-  // Delete task
   delete: async (taskId: string): Promise<void> => {
     await apiClient.delete(`/tasks/${taskId}`);
   },

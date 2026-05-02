@@ -45,7 +45,7 @@ export interface ProjectModel {
   status: ProjectStatus;
   color?: string | null;
   icon?: string | null;
-  startDate?: string | null; // DateOnly serialized as ISO string
+  startDate?: string | null;
   targetDate?: string | null;
   createdAtUtc: string;
   updatedAtUtc?: string | null;

@@ -2,8 +2,9 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/lib/stores/auth-store";
 // "https://localhost:7001/api/v1"
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5003/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
+  : "http://localhost:5003/api/v1";
 
 // Create axios instance
 export const apiClient = axios.create({
@@ -45,7 +46,7 @@ apiClient.interceptors.response.use(
         const refreshToken = useAuthStore.getState().refreshToken;
 
         if (!refreshToken) {
-          throw new Error("No refresh token");
+          throw new Error("No refresh token available");
         }
 
         // Call refresh endpoint
@@ -64,7 +65,9 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed - logout user
         useAuthStore.getState().logout();
-        window.location.href = "/login";
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
         return Promise.reject(refreshError);
       }
     }

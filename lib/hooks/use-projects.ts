@@ -46,9 +46,11 @@ export function useProjectTasks(projectId: string | undefined) {
     queryKey: ["project-tasks", workspaceId, projectId],
     queryFn: async () => {
       const data = await tasksApi.getWorkspaceTasks(workspaceId!, {
+        projectId: projectId!,
         pageNumber: 1,
-        pageSize: 500,
+        pageSize: 50,
       });
+
       return {
         ...data,
         items: data.items.filter((t) => t.projectId === projectId),
@@ -57,4 +59,3 @@ export function useProjectTasks(projectId: string | undefined) {
     enabled: !!workspaceId && !!projectId,
   });
 }
-

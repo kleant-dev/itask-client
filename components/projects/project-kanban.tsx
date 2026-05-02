@@ -54,8 +54,7 @@ function buildItems(tasks: TaskModel[]): Record<TaskStatus, string[]> {
   }
   for (const col of COLUMNS) {
     next[col.status].sort(
-      (a, b) =>
-        (byId.get(a)?.sortOrder ?? 0) - (byId.get(b)?.sortOrder ?? 0),
+      (a, b) => (byId.get(a)?.sortOrder ?? 0) - (byId.get(b)?.sortOrder ?? 0),
     );
   }
   return next;
@@ -185,8 +184,7 @@ function TaskCardVisual({
         >
           <span>{due ?? "—"}</span>
           <span className="flex items-center gap-1 opacity-90">
-            <MessageSquare className="h-4 w-4" strokeWidth={1.5} />
-            0
+            <MessageSquare className="h-4 w-4" strokeWidth={1.5} />0
           </span>
         </div>
       </div>
@@ -368,8 +366,7 @@ export function ProjectKanban({ tasks, priorityFilter }: ProjectKanbanProps) {
           active.rect.current.translated &&
           active.rect.current.translated.top > over.rect.top + over.rect.height;
         const modifier = isBelowOverItem ? 1 : 0;
-        newIndex =
-          overIndex >= 0 ? overIndex + modifier : overItems.length;
+        newIndex = overIndex >= 0 ? overIndex + modifier : overItems.length;
       }
 
       const moving = activeItems[activeIndex];
@@ -513,10 +510,7 @@ export function ProjectKanban({ tasks, priorityFilter }: ProjectKanbanProps) {
 
       <DragOverlay dropAnimation={dropAnimation}>
         {activeTask ? (
-          <div
-            className="cursor-grabbing"
-            style={{ width: cardOverlayWidth }}
-          >
+          <div className="cursor-grabbing" style={{ width: cardOverlayWidth }}>
             <TaskCardVisual
               task={activeTask}
               className="scale-[1.02] shadow-xl ring-black/10"

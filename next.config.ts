@@ -1,18 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: "http://localhost:5003/api/:path*",
-      },
-      {
-        source: "/hubs/:path*",
-        destination: "http://localhost:5003/hubs/:path*",
-      },
-    ];
-  },
+  allowedDevOrigins: ["192.168.8.111:3000"],
+};
+
+module.exports = {
+  allowedDevOrigins: ["192.168.8.111"],
 };
 
 export default nextConfig;
