@@ -12,7 +12,7 @@ import {
   Plus,
   HelpCircle,
   Settings,
-  ChevronDown,
+  Bell,
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,17 +28,26 @@ import { useWorkspaceProjects } from "@/lib/hooks/use-projects";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
 
-const menuItems = [
+interface NavItem {
+  icon: React.ElementType;
+  label: string;
+  href: string;
+}
+
+const menuItems: NavItem[] = [
   { icon: Home, label: "Home", href: "/home" },
-  { icon: MessageSquare, label: "Message", href: "/messages" },
+  { icon: MessageSquare, label: "Messages", href: "/messages" },
   { icon: Calendar, label: "Calendar", href: "/calendar" },
+  { icon: Bell, label: "Notifications", href: "/notifications" },
 ];
 
 export function AppSidebar() {
   const [createProjectOpen, setCreateProjectOpen] = React.useState(false);
   const pathname = usePathname();
+  // BUG FIX: We read sidebarOpen but fix the layout by using width-based transitions
+  // instead of translateX. The old approach used `-translate-x-full` which kept the
+  // sidebar in the document flow, causing the main content not to expand.
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
-  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
   const {
     workspaces,
@@ -56,197 +65,227 @@ export function AppSidebar() {
   const projects = projectsData?.items ?? [];
 
   return (
-    // 260px width, white background, full height
+    /*
+     * FIX: Changed from `w-65 transition-transform translate-x / -translate-x-full`
+     * to `transition-[width,min-width] w-65 / w-0` so that the element is actually
+     * removed from the flex flow when collapsed, allowing the main panel to fill
+     * the full viewport width.
+     *
+     * `overflow-hidden` prevents content from spilling out during the animation.
+     * `shrink-0` prevents flex from shrinking the sidebar unexpectedly.
+     */
     <aside
       className={cn(
-        "flex h-screen w-65 flex-col bg-white transition-transform",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full",
+        "flex h-screen flex-col bg-white shrink-0 overflow-hidden transition-[width,min-width] duration-300 ease-in-out",
+        sidebarOpen ? "w-[260px] min-w-[260px]" : "w-0 min-w-0",
       )}
     >
-      {/* Logo section: 56px height */}
-      <div className="flex h-14 items-center gap-3 px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500">
-          <Sparkles className="h-5 w-5 text-white" />
-        </div>
-        <span className="text-[24px] font-medium text-neutral-900">
-          Slender
-        </span>
-      </div>
-
-      {/* Scrollable content */}
-      <div className="flex flex-1 flex-col overflow-y-auto px-4 py-4">
-        {/* Workspace Selector: 76px height total */}
-        <div className="mb-4">
-          <div className="mb-2 text-subheading-xsmall text-neutral-400">
-            WORKSPACE
+      {/* Inner wrapper keeps content at full width so text doesn't wrap during animation */}
+      <div className="flex h-full w-[260px] flex-col">
+        {/* ── LOGO ── */}
+        <div className="flex h-14 shrink-0 items-center gap-3 px-4">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#375dfb] to-[#6a8ffc]">
+            <Sparkles className="h-4 w-4 text-white" />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-13 w-full justify-between rounded-lg bg-white"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center">
-                    <span className="text-white text-sm font-semibold">
+          <span className="text-[20px] font-semibold tracking-tight text-neutral-900">
+            Slender
+          </span>
+        </div>
+
+        {/* ── SCROLLABLE CONTENT ── */}
+        <div className="flex flex-1 flex-col overflow-y-auto px-4 py-4 gap-5">
+          {/* Workspace Selector */}
+          <div>
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-neutral-400">
+              Workspace
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex h-12 w-full items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3 text-left hover:bg-neutral-50 transition-colors">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-500">
+                    <span className="text-[13px] font-semibold text-white">
                       {activeWorkspace?.name?.charAt(0).toUpperCase() ?? "W"}
                     </span>
                   </div>
-                  <span className="text-p-small text-neutral-900">
-                    {activeWorkspace?.name ?? "Loading workspaces..."}
-                  </span>
-                </div>
-                <ChevronDown className="h-4 w-4 text-neutral-500" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-57">
-              {workspacesLoading && (
-                <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
-              )}
-              {!workspacesLoading &&
-                workspaces.map((workspace) => (
-                  <DropdownMenuItem
-                    key={workspace.id}
-                    onClick={() => setCurrentWorkspaceId(workspace.id)}
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-[13px] font-medium text-neutral-900">
+                      {workspacesLoading
+                        ? "Loading..."
+                        : (activeWorkspace?.name ?? "Select Workspace")}
+                    </span>
+                    <span className="text-[11px] text-neutral-400">
+                      Free plan
+                    </span>
+                  </div>
+                  <svg
+                    className="h-4 w-4 shrink-0 text-neutral-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded bg-orange-500 flex items-center justify-center">
-                        <span className="text-white text-xs font-semibold">
-                          {workspace.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <span className="text-label-medium text-neutral-900">
-                        {workspace.name}
-                      </span>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M8 9l4-4 4 4m0 6l-4 4-4-4"
+                    />
+                  </svg>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[228px]">
+                {workspaces.map((ws) => (
+                  <DropdownMenuItem
+                    key={ws.id}
+                    onClick={() => setCurrentWorkspaceId(ws.id)}
+                    className="gap-2"
+                  >
+                    <div className="flex h-6 w-6 items-center justify-center rounded bg-orange-500 text-[11px] font-semibold text-white">
+                      {ws.name.charAt(0).toUpperCase()}
                     </div>
+                    <span className="truncate text-[13px]">{ws.name}</span>
                   </DropdownMenuItem>
                 ))}
-              <DropdownMenuItem>
-                <Plus className="mr-2 h-4 w-4" />
-                <span>Create Workspace</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Menu Section */}
-        <div className="mb-4">
-          <div className="mb-2 text-subheading-xsmall text-neutral-400">
-            MENU
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <nav className="space-y-0.5">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
-              const Icon = item.icon;
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex h-8.5 items-center gap-3 rounded-lg px-3 transition-colors",
-                    isActive
-                      ? "bg-white text-neutral-900"
-                      : "text-neutral-400 hover:bg-neutral-50",
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-label-small">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Projects Section */}
-        <div className="flex-1 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <Link
-              href="/projects"
-              className="text-subheading-xsmall text-neutral-400 hover:text-neutral-600"
-            >
-              PROJECTS
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 text-neutral-500 hover:text-neutral-700"
-              onClick={() => setCreateProjectOpen(true)}
-              aria-label="New project"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <nav className="space-y-0.5">
-            {projectsLoading && (
-              <div className="text-p-small text-neutral-500 px-3 py-1.5">
-                Loading projects...
-              </div>
-            )}
-            {!projectsLoading &&
-              projects.map((project) => {
-                const isActive = pathname === `/projects/${project.id}`;
-
+          {/* Main Nav */}
+          <div>
+            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-widest text-neutral-400">
+              Menu
+            </div>
+            <nav className="flex flex-col gap-0.5">
+              {menuItems.map((item) => {
+                const isActive = pathname === item.href;
+                const Icon = item.icon;
                 return (
                   <Link
-                    key={project.id}
-                    href={`/projects/${project.id}`}
+                    key={item.href}
+                    href={item.href}
                     className={cn(
-                      "flex h-8.5 items-center gap-3 rounded-lg px-3 text-p-small transition-colors",
+                      "group flex h-9 items-center gap-3 rounded-lg px-3 text-[13px] font-medium transition-colors",
                       isActive
-                        ? "bg-neutral-50 text-neutral-900 font-medium"
-                        : "text-neutral-700 hover:bg-neutral-50",
+                        ? "bg-[#ebefff] text-[#375dfb]"
+                        : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900",
                     )}
                   >
-                    <Folder
-                      className="h-5 w-5 text-neutral-500"
-                      // color could come from project.color when backend supports it
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0 transition-colors",
+                        isActive
+                          ? "text-[#375dfb]"
+                          : "text-neutral-400 group-hover:text-neutral-700",
+                      )}
+                      strokeWidth={isActive ? 2 : 1.5}
                     />
-                    <span>{project.name}</span>
+                    <span>{item.label}</span>
                   </Link>
                 );
               })}
-            {!projectsLoading && !projects.length && activeWorkspace && (
-              <div className="text-p-xsmall text-neutral-500 px-3 py-1.5">
-                No projects yet in this workspace.
-              </div>
-            )}
-          </nav>
-        </div>
-
-        {/* Other Section */}
-        <div className="mb-4">
-          <div className="mb-2 text-label-xsmall text-[#8796AF]">OTHER</div>
-          <nav className="space-y-0.5">
-            <Link
-              href="/help"
-              className="flex h-8.5 items-center gap-3 rounded-lg px-3 text-p-small text-neutral-700 transition-colors hover:bg-neutral-50"
-            >
-              <HelpCircle className="h-5 w-5" />
-              <span>Help Center</span>
-            </Link>
-            <Link
-              href="/settings"
-              className="flex h-8.5 items-center gap-3 rounded-lg px-3 text-p-small text-neutral-700 transition-colors hover:bg-neutral-50"
-            >
-              <Settings className="h-5 w-5" />
-              <span>Settings</span>
-            </Link>
-          </nav>
-        </div>
-
-        {/* Upgrade to Pro Banner */}
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 text-center">
-          <div className="mb-1 text-label-medium text-neutral-900">
-            Upgrade to Pro
+            </nav>
           </div>
-          <div className="mb-3 text-p-xsmall text-neutral-500">
-            15 days left in your trial
+
+          {/* Projects Section */}
+          <div className="flex flex-1 flex-col">
+            <div className="mb-1.5 flex items-center justify-between">
+              <Link
+                href="/projects"
+                className="text-[10px] font-medium uppercase tracking-widest text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                Projects
+              </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 text-neutral-400 hover:text-neutral-600"
+                onClick={() => setCreateProjectOpen(true)}
+                aria-label="New project"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <nav className="flex flex-col gap-0.5">
+              {projectsLoading && (
+                <div className="px-3 py-2 text-[12px] text-neutral-400">
+                  Loading…
+                </div>
+              )}
+              {!projectsLoading &&
+                projects.map((project) => {
+                  const isActive = pathname === `/projects/${project.id}`;
+                  return (
+                    <Link
+                      key={project.id}
+                      href={`/projects/${project.id}`}
+                      className={cn(
+                        "flex h-9 items-center gap-3 rounded-lg px-3 text-[13px] transition-colors",
+                        isActive
+                          ? "bg-neutral-100 font-medium text-neutral-900"
+                          : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900",
+                      )}
+                    >
+                      <Folder
+                        className="h-4 w-4 shrink-0 text-neutral-400"
+                        strokeWidth={1.5}
+                      />
+                      <span className="truncate">{project.name}</span>
+                    </Link>
+                  );
+                })}
+              {!projectsLoading && !projects.length && activeWorkspace && (
+                <button
+                  onClick={() => setCreateProjectOpen(true)}
+                  className="flex h-9 items-center gap-3 rounded-lg px-3 text-[12px] text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600 transition-colors text-left"
+                >
+                  <Plus className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                  New project
+                </button>
+              )}
+            </nav>
           </div>
-          <Button className="w-full" size="sm">
-            <Sparkles className="mr-2 h-4 w-4" />
-            Upgrade
-          </Button>
+
+          {/* Other Section */}
+          <div>
+            <div className="mb-1.5 text-[10px] font-medium uppercase tracking-widest text-neutral-400">
+              Other
+            </div>
+            <nav className="flex flex-col gap-0.5">
+              <Link
+                href="/help"
+                className="flex h-9 items-center gap-3 rounded-lg px-3 text-[13px] text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+              >
+                <HelpCircle
+                  className="h-4 w-4 shrink-0 text-neutral-400"
+                  strokeWidth={1.5}
+                />
+                <span>Help Center</span>
+              </Link>
+              <Link
+                href="/settings"
+                className="flex h-9 items-center gap-3 rounded-lg px-3 text-[13px] text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+              >
+                <Settings
+                  className="h-4 w-4 shrink-0 text-neutral-400"
+                  strokeWidth={1.5}
+                />
+                <span>Settings</span>
+              </Link>
+            </nav>
+          </div>
+
+          {/* Upgrade Banner */}
+          <div className="shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#375dfb] to-[#6a8ffc] p-4 text-white shadow-md shadow-blue-200">
+            <div className="mb-0.5 text-[13px] font-semibold">
+              Upgrade to Pro
+            </div>
+            <div className="mb-3 text-[11px] text-blue-100">
+              15 days left in your trial
+            </div>
+            <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-white/20 py-1.5 text-[12px] font-medium text-white backdrop-blur-sm hover:bg-white/30 transition-colors">
+              <Sparkles className="h-3.5 w-3.5" />
+              Upgrade
+            </button>
+          </div>
         </div>
       </div>
 
