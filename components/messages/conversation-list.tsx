@@ -1,4 +1,8 @@
 // components/messages/conversation-list.tsx
+// FIGMA PATCH:
+//   1. Items list wrapper: px-4 → px-6  (items now sit inside the 24px container padding, matching Figma spec)
+//   2. Items list: added gap-2 (8px) between conversation rows  (Figma itemSpacing: 8)
+//   3. Unread badge: fixed operator-precedence bug (it.unreadCount ?? 0 > 0) → ((it.unreadCount ?? 0) > 0)
 "use client";
 import { useState } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
@@ -79,7 +83,7 @@ export function ConversationList({
         >
           All Message
         </h2>
-        {/* New Message button — blue, pencil-plus icon */}
+        {/* New Message button */}
         <button
           onClick={onNewMessage}
           className="flex items-center gap-1.5 rounded-lg text-white text-[14px] font-medium transition-colors hover:bg-[#1a5dd4] shrink-0"
@@ -112,42 +116,42 @@ export function ConversationList({
       {/* ── Search + Filter ─────────────────────── */}
       <div className="flex flex-col gap-3 px-6 py-5">
         <div className="flex items-center gap-3">
-        {/* Search field */}
-        <div className="relative flex-1">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8796af]"
-            style={{ width: 16, height: 16 }}
-            strokeWidth={1.5}
-          />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search in message"
-            className="w-full rounded-[10px] border bg-white pl-9 text-[14px] text-[#111625] placeholder:text-[#8796af] focus:border-[#266df0] focus:outline-none focus:ring-2 focus:ring-[#266df0]/10 transition-colors"
-            style={{ height: 40, borderColor: "#dde3ee", paddingRight: 56 }}
-          />
-          {/* ⌘+K badge */}
-          <span
-            className="absolute right-3 top-1/2 -translate-y-1/2 select-none text-[13px] text-[#596881]"
-            style={{
-              backgroundColor: "#f7f9fb",
-              borderRadius: 6,
-              padding: "2px 6px",
-            }}
+          {/* Search field */}
+          <div className="relative flex-1">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8796af]"
+              style={{ width: 16, height: 16 }}
+              strokeWidth={1.5}
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search in message"
+              className="w-full rounded-[10px] border bg-white pl-9 text-[14px] text-[#111625] placeholder:text-[#8796af] focus:border-[#266df0] focus:outline-none focus:ring-2 focus:ring-[#266df0]/10 transition-colors"
+              style={{ height: 40, borderColor: "#dde3ee", paddingRight: 56 }}
+            />
+            {/* ⌘+K badge */}
+            <span
+              className="absolute right-3 top-1/2 -translate-y-1/2 select-none text-[13px] text-[#596881]"
+              style={{
+                backgroundColor: "#f7f9fb",
+                borderRadius: 6,
+                padding: "2px 6px",
+              }}
+            >
+              ⌘+K
+            </span>
+          </div>
+          {/* Filter button */}
+          <button
+            className="flex items-center justify-center rounded-[10px] border border-[#dde3ee] bg-white text-[#111625] hover:bg-[#f7f9fb] transition-colors shrink-0"
+            style={{ width: 40, height: 40 }}
           >
-            ⌘+K
-          </span>
-        </div>
-        {/* Filter button */}
-        <button
-          className="flex items-center justify-center rounded-[10px] border border-[#dde3ee] bg-white text-[#111625] hover:bg-[#f7f9fb] transition-colors shrink-0"
-          style={{ width: 40, height: 40 }}
-        >
-          <SlidersHorizontal
-            style={{ width: 15, height: 15 }}
-            strokeWidth={1.5}
-          />
-        </button>
+            <SlidersHorizontal
+              style={{ width: 15, height: 15 }}
+              strokeWidth={1.5}
+            />
+          </button>
         </div>
 
         {/* Quick filter chips */}
@@ -174,8 +178,9 @@ export function ConversationList({
           >
             Unread
             <span className="rounded-full bg-[#df1c41] px-1.5 text-[11px] text-white">
+              {/* FIX: was (it.unreadCount ?? 0 > 0 ? 1 : 0) — wrong precedence */}
               {items.reduce(
-                (sum, it) => sum + (it.unreadCount ?? 0 > 0 ? 1 : 0),
+                (sum, it) => sum + ((it.unreadCount ?? 0) > 0 ? 1 : 0),
                 0,
               )}
             </span>
@@ -186,7 +191,8 @@ export function ConversationList({
       {/* ── List ───────────────────────────────── */}
       <div className="flex-1 overflow-y-auto pb-3">
         {isLoading ? (
-          <div className="flex flex-col gap-1 px-4">
+          // FIX: wrapper was px-4, now px-6 to match Figma 24px container padding
+          <div className="flex flex-col gap-2 px-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
@@ -205,7 +211,9 @@ export function ConversationList({
             <p className="text-[14px] text-[#596881]">No conversations yet.</p>
           </div>
         ) : (
-          <div className="flex flex-col px-4">
+          // FIX: was px-4 (16px). Now px-6 (24px) to match Figma container padding.
+          // FIX: added gap-2 (8px) between items — Figma itemSpacing: 8.
+          <div className="flex flex-col gap-2 px-6">
             {filtered.map((item) => {
               const isSelected = item.channel.id === selectedChannelId;
               return (
@@ -260,7 +268,6 @@ export function ConversationList({
                         {item.lastMessage ?? "No messages yet"}
                       </p>
                       {item.unreadCount ? (
-                        /* Unread count badge — red */
                         <span
                           className="flex shrink-0 items-center justify-center rounded-full text-[11px] font-medium text-white"
                           style={{
@@ -273,7 +280,6 @@ export function ConversationList({
                           {item.unreadCount}
                         </span>
                       ) : item.lastMessage ? (
-                        /* Double-check sent indicator */
                         <svg
                           width="16"
                           height="16"

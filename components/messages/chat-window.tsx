@@ -38,6 +38,8 @@ function groupMessages<
       i === 0 ||
       new Date(msgs[i - 1].createdAtUtc).toDateString() !==
         new Date(msg.createdAtUtc).toDateString(),
+    // Track whether this is the very first message overall (no top margin needed)
+    isFirst: i === 0,
   }));
 }
 
@@ -69,15 +71,12 @@ export function ChatWindow({
     const el = scrollContainerRef.current;
     if (!el) return;
 
-    const nearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
 
     if (nearBottom) {
-      // Auto-scroll when the user is already at (or near) the bottom.
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       setShowScrollToBottom(false);
     } else {
-      // New messages while scrolled up → show "jump to latest" button.
       setShowScrollToBottom(true);
     }
   }, [messages.length]);
@@ -85,8 +84,7 @@ export function ChatWindow({
   function handleScroll() {
     const el = scrollContainerRef.current;
     if (!el) return;
-    const nearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     setShowScrollToBottom(!nearBottom && messages.length > 0);
   }
 
@@ -126,7 +124,6 @@ export function ChatWindow({
         className="flex shrink-0 items-center justify-between px-6"
         style={{ height: 60, borderBottom: "1px solid #f0f2f5" }}
       >
-        {/* Avatar + name + status */}
         <div className="flex items-center gap-3">
           <Avatar style={{ width: 40, height: 40 }}>
             <AvatarImage src={otherUser.avatarUrl ?? undefined} />
@@ -157,9 +154,7 @@ export function ChatWindow({
           </div>
         </div>
 
-        {/* Action icon row — search, phone, video, more */}
-        <div className="flex items-center gap-2">
-          {/* Search (placeholder for now) */}
+        <div className="flex items-center gap-3">
           <button
             title="Search"
             className="flex items-center justify-center rounded-lg border border-[#dde3ee] bg-white text-[#596881] hover:bg-[#f7f9fb] transition-colors"
@@ -167,7 +162,6 @@ export function ChatWindow({
           >
             <Search style={{ width: 16, height: 16 }} strokeWidth={1.5} />
           </button>
-          {/* Audio call */}
           <button
             title="Voice call"
             onClick={() => startCall("audio")}
@@ -179,7 +173,6 @@ export function ChatWindow({
           >
             <Phone style={{ width: 16, height: 16 }} strokeWidth={1.5} />
           </button>
-          {/* Video call */}
           <button
             title="Video call"
             onClick={() => startCall("video")}
@@ -191,7 +184,6 @@ export function ChatWindow({
           >
             <Video style={{ width: 16, height: 16 }} strokeWidth={1.5} />
           </button>
-          {/* More — opens context menu */}
           <div className="relative">
             <button
               title="More"
@@ -216,7 +208,7 @@ export function ChatWindow({
         </div>
       </div>
 
-      {/* ── Message content area — #f7f9fb background ───────────────── */}
+      {/* ── Message content area ─────────────────────────────────────── */}
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto relative"
@@ -229,7 +221,6 @@ export function ChatWindow({
         }}
       >
         {isLoading ? (
-          /* Skeleton */
           <div className="flex flex-col gap-4">
             {Array.from({ length: 5 }).map((_, i) => (
               <div
@@ -244,7 +235,6 @@ export function ChatWindow({
             ))}
           </div>
         ) : messages.length === 0 ? (
-          /* Empty state inside chat area */
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <Avatar style={{ width: 56, height: 56 }}>
               <AvatarImage src={otherUser.avatarUrl ?? undefined} />
@@ -263,6 +253,9 @@ export function ChatWindow({
             </div>
           </div>
         ) : (
+          // gap-1 (4px) handles within-group spacing.
+          // Inter-group spacing (12px) is added via mt-3 on the wrapper div
+          // when showAvatar is true and it's not the very first message.
           <div className="flex flex-col gap-1">
             {grouped.map((msg) => {
               const isOwn = msg.authorId === currentUserId;
@@ -272,8 +265,13 @@ export function ChatWindow({
                     new Date(otherUserLastReadAt).getTime()
                   : false;
 
+              // FIX: add mt-3 (12px) to the first bubble of each new sender group
+              // to match Figma's 12px spacing between message-bubble-container groups.
+              // Only skip top margin for the very first message in the conversation.
+              const isGroupStart = msg.showAvatar && !msg.isFirst;
+
               return (
-                <div key={msg.id}>
+                <div key={msg.id} className={isGroupStart ? "mt-3" : undefined}>
                   {/* Day divider pill */}
                   {msg.showDayDivider && (
                     <div className="flex justify-center my-4">
@@ -302,7 +300,7 @@ export function ChatWindow({
 
             {/* Typing indicator */}
             {isOtherUserTyping && (
-              <div className="flex items-end gap-2 mt-2">
+              <div className="flex items-end gap-2 mt-3">
                 <Avatar style={{ width: 32, height: 32, flexShrink: 0 }}>
                   <AvatarFallback
                     className="text-[11px] text-white"
@@ -347,7 +345,7 @@ export function ChatWindow({
         </button>
       )}
 
-      {/* Call overlay (audio/video) */}
+      {/* Call overlay */}
       {callKind && callPhase !== "idle" && (
         <CallOverlay
           otherUser={otherUser}

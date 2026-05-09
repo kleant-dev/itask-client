@@ -1,4 +1,7 @@
 // components/messages/message-bubble.tsx
+// FIGMA PATCH:
+//   Bubble padding: px-4 py-2.5 (16px/10px) → px-3 py-3 (12px/12px)
+//   Figma: bubble paddingTop: 12, paddingBottom: 12, paddingLeft: 12, paddingRight: 12
 "use client";
 import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
@@ -10,9 +13,9 @@ import * as hub from "@/lib/services/chat-hub";
 
 interface MessageBubbleProps {
   message: MessageModel;
-  author?: UserModel; // defined when the message is from the other user
+  author?: UserModel;
   isOwn: boolean;
-  showAvatar?: boolean; // first bubble in a consecutive run
+  showAvatar?: boolean;
   deliveryStatus?: "sent" | "read";
 }
 
@@ -91,7 +94,6 @@ export function MessageBubble({
         style={{ maxWidth: "65%" }}
       >
         {editing ? (
-          /* Edit mode */
           <div className="flex flex-col gap-1.5 w-full">
             <textarea
               value={editValue}
@@ -129,12 +131,9 @@ export function MessageBubble({
             </div>
           </div>
         ) : (
-          /* Bubble */
-          // Figma:
-          //   received → white bg (#ffffff), rounded-xl, bottom-left corner = 4px
-          //   sent     → blue-tint bg (#e9f0fe), rounded-xl, bottom-right corner = 4px
+          // FIX: was px-4 py-2.5 (16px / 10px). Figma: 12px all sides → px-3 py-3
           <div
-            className="px-4 py-2.5 text-[12px] leading-relaxed"
+            className="px-3 py-3 text-[12px] leading-relaxed"
             style={{
               backgroundColor: isOwn ? "#e9f0fe" : "#ffffff",
               color: "#111625",
@@ -153,7 +152,7 @@ export function MessageBubble({
           </div>
         )}
 
-        {/* Timestamp + double-check (shown on first bubble in a run) */}
+        {/* Timestamp + double-check */}
         {showAvatar && !editing && (
           <div
             className={cn(
@@ -186,7 +185,7 @@ export function MessageBubble({
         )}
       </div>
 
-      {/* ── Edit / delete hover actions (own messages only) ── */}
+      {/* ── Edit / delete hover actions ── */}
       {isOwn && !editing && (
         <div
           className={cn(
