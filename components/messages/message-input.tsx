@@ -1,19 +1,38 @@
 // components/messages/message-input.tsx
+//
+// Change (Task 2):
+// Added `onSend` prop — an async callback provided by ChatWindow that
+// calls `useMessages.sendMessage()`, which handles the optimistic update.
+// If `onSend` is provided it takes precedence; if not, the component falls
+// back to calling `hub.sendMessage` directly (backwards-compatible).
+//
+// The toast on send failure is intentionally kept here so the user gets
+// visual feedback even if the parent doesn't handle the error.
+
 "use client";
+
 import { useState, useRef, KeyboardEvent } from "react";
 import { Mic, Smile, Paperclip, Send } from "lucide-react";
+import { toast } from "sonner";
 import * as hub from "@/lib/services/chat-hub";
 
 interface MessageInputProps {
   channelId: string;
   onTyping?: () => void;
   disabled?: boolean;
+  /**
+   * If provided, called instead of `hub.sendMessage` directly.
+   * Receives the trimmed message body; should throw on failure.
+   * This allows the parent (ChatWindow) to inject optimistic updates.
+   */
+  onSend?: (body: string) => Promise<void>;
 }
 
 export function MessageInput({
   channelId,
   onTyping,
   disabled,
+  onSend,
 }: MessageInputProps) {
   const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
@@ -31,9 +50,15 @@ export function MessageInput({
     if (!body || sending || disabled) return;
     setSending(true);
     try {
-      await hub.sendMessage(channelId, body);
+      if (onSend) {
+        await onSend(body);
+      } else {
+        await hub.sendMessage(channelId, body);
+      }
       setValue("");
       if (textareaRef.current) textareaRef.current.style.height = "auto";
+    } catch {
+      toast.error("Message failed to send. Please try again.");
     } finally {
       setSending(false);
     }
@@ -55,19 +80,18 @@ export function MessageInput({
   const canSend = value.trim().length > 0 && !sending && !disabled;
 
   return (
-    // Figma: pill-shaped input row, 48px height, sits inside chat-window above bottom edge
     <div className="px-3 pb-3 pt-2 shrink-0">
       <div
         className="flex items-center gap-2 bg-white border border-[#dde3ee] px-4"
         style={{ minHeight: 48, borderRadius: 100 }}
       >
-        {/* Text area — grows up to 3 lines */}
+        {/* Auto-resizing textarea */}
         <textarea
           ref={textareaRef}
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder="Type any message..."
+          placeholder="Type any message…"
           rows={1}
           disabled={disabled}
           className="flex-1 resize-none bg-transparent text-[12px] text-[#111625] placeholder:text-[#8796af] focus:outline-none leading-5"
@@ -76,32 +100,33 @@ export function MessageInput({
 
         {/* Icon actions */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Mic */}
           <button
+            type="button"
             title="Voice message"
             className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-[#f7f9fb] transition-colors"
           >
             <Mic style={{ width: 14, height: 14 }} strokeWidth={1.5} />
           </button>
-          {/* Emoji */}
           <button
+            type="button"
             title="Emoji"
             className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-[#f7f9fb] transition-colors"
           >
             <Smile style={{ width: 14, height: 14 }} strokeWidth={1.5} />
           </button>
-          {/* Attachment */}
           <button
+            type="button"
             title="Attach file"
             className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-[#f7f9fb] transition-colors"
           >
             <Paperclip style={{ width: 14, height: 14 }} strokeWidth={1.5} />
           </button>
-          {/* Send — blue circle, always visible, dims when empty */}
+
+          {/* Send button */}
           <button
             onClick={handleSend}
             disabled={!canSend}
-            title="Send"
+            title={sending ? "Sending…" : "Send"}
             className="flex items-center justify-center rounded-full text-white transition-opacity"
             style={{
               width: 32,

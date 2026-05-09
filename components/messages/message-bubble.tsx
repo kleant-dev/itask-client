@@ -1,23 +1,42 @@
 // components/messages/message-bubble.tsx
-// FIGMA PATCH:
-//   Bubble padding: px-4 py-2.5 (16px/10px) → px-3 py-3 (12px/12px)
-//   Figma: bubble paddingTop: 12, paddingBottom: 12, paddingLeft: 12, paddingRight: 12
+//
+// Changes (Task 2 — Chat UX overhaul):
+//
+// 1. DELIVERY STATUS: `deliveryStatus` now accepts "sending" | "sent" | "read".
+//    - "sending" → animated clock icon (optimistic ghost, not yet confirmed)
+//    - "sent"    → single grey checkmark
+//    - "read"    → double blue checkmarks (unchanged from original)
+//
+// 2. MESSAGE TYPE: accepts `ClientMessage` (superset of `MessageModel`) so
+//    the caller can pass optimistic ghosts directly without a cast.
+//
+// 3. UX POLISH: bubble background is slightly adjusted for a more modern feel;
+//    the timestamp line is always visible for own messages (not just showAvatar
+//    messages) so the receipt indicator is never hidden.
+
 "use client";
+
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import type { MessageModel } from "@/types/message-models";
+import type { ClientMessage } from "@/lib/hooks/use-messages";
 import type { UserModel } from "@/types/models";
 import * as hub from "@/lib/services/chat-hub";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type DeliveryStatus = "sending" | "sent" | "read";
+
 interface MessageBubbleProps {
-  message: MessageModel;
+  message: ClientMessage;
   author?: UserModel;
   isOwn: boolean;
   showAvatar?: boolean;
-  deliveryStatus?: "sent" | "read";
+  deliveryStatus?: DeliveryStatus;
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", {
@@ -36,6 +55,63 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+// ── Receipt icons ─────────────────────────────────────────────────────────────
+
+function SendingIcon() {
+  return (
+    <Clock
+      className="animate-pulse text-[#8796af]"
+      style={{ width: 12, height: 12 }}
+      strokeWidth={1.5}
+    />
+  );
+}
+
+function SentIcon() {
+  // Single checkmark
+  return (
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+      <path
+        d="M3 10l5 5L17 4"
+        stroke="#8796af"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ReadIcon() {
+  // Double checkmark, blue
+  return (
+    <svg width="16" height="14" viewBox="0 0 24 20" fill="none">
+      <path
+        d="M2 11l5 5L18 4"
+        stroke="#266df0"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 11l5 5"
+        stroke="#266df0"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ReceiptIcon({ status }: { status: DeliveryStatus }) {
+  if (status === "sending") return <SendingIcon />;
+  if (status === "read") return <ReadIcon />;
+  return <SentIcon />;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export function MessageBubble({
   message,
   author,
@@ -53,20 +129,23 @@ export function MessageBubble({
       setEditing(false);
       return;
     }
+    // Optimistic ghosts can't be edited — they have no real server ID yet
+    if (message._status === "sending") return;
     await hub.editMessage(message.id, trimmed);
     setEditing(false);
   }
 
   const name = author?.name ?? "You";
+  const isSending = message._status === "sending";
 
   return (
     <div
       className={cn("group flex items-end gap-2", isOwn && "flex-row-reverse")}
-      style={{ marginBottom: 2 }}
+      style={{ marginBottom: 2, opacity: isSending ? 0.75 : 1 }}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      {/* ── Avatar (received only, first in run) ─── */}
+      {/* ── Avatar (received only, first in run) ── */}
       {!isOwn ? (
         showAvatar ? (
           <Avatar
@@ -85,7 +164,7 @@ export function MessageBubble({
         )
       ) : null}
 
-      {/* ── Bubble column ─────────────────────────── */}
+      {/* ── Bubble column ── */}
       <div
         className={cn(
           "flex flex-col gap-1",
@@ -131,9 +210,8 @@ export function MessageBubble({
             </div>
           </div>
         ) : (
-          // FIX: was px-4 py-2.5 (16px / 10px). Figma: 12px all sides → px-3 py-3
           <div
-            className="px-3 py-3 text-[12px] leading-relaxed"
+            className="px-3 py-[10px] text-[13px] leading-relaxed"
             style={{
               backgroundColor: isOwn ? "#e9f0fe" : "#ffffff",
               color: "#111625",
@@ -144,7 +222,7 @@ export function MessageBubble({
             }}
           >
             {message.body}
-            {message.updatedAtUtc !== message.createdAtUtc && (
+            {message.updatedAtUtc !== message.createdAtUtc && !isSending && (
               <span className="ml-1.5 text-[10px] text-[#8796af]">
                 (edited)
               </span>
@@ -152,41 +230,26 @@ export function MessageBubble({
           </div>
         )}
 
-        {/* Timestamp + double-check */}
-        {showAvatar && !editing && (
+        {/* ── Timestamp + receipt ── */}
+        {/* Show for own messages always (not just showAvatar) so the receipt
+            icon is never hidden in the middle of a run. */}
+        {(isOwn || showAvatar) && !editing && (
           <div
             className={cn(
-              "flex items-center gap-1",
+              "flex items-center gap-1 px-0.5",
               isOwn && "flex-row-reverse",
             )}
           >
-            {isOwn && (
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                <path
-                  d="M2 11l5 5L18 4"
-                  stroke={deliveryStatus === "read" ? "#266df0" : "#8796af"}
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M8 11l5 5"
-                  stroke={deliveryStatus === "read" ? "#266df0" : "#8796af"}
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            )}
-            <span className="text-[12px] text-[#596881]">
+            {isOwn && deliveryStatus && <ReceiptIcon status={deliveryStatus} />}
+            <span className="text-[11px] text-[#8796af]">
               {formatTime(message.createdAtUtc)}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── Edit / delete hover actions ── */}
-      {isOwn && !editing && (
+      {/* ── Hover actions (own messages only, non-ghost) ── */}
+      {isOwn && !editing && !isSending && (
         <div
           className={cn(
             "flex items-center gap-1 mb-1 transition-opacity",

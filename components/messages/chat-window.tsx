@@ -1,5 +1,21 @@
 // components/messages/chat-window.tsx
+//
+// Changes (Task 2 — Chat UX overhaul):
+//
+// 1. Uses `sendMessage` from `useMessages` (optimistic) instead of calling
+//    hub.sendMessage directly — the hook owns the optimistic message lifecycle.
+//
+// 2. Calls `useChatStore.setActiveChannel` on mount / channel change, and
+//    `resetUnread` so the unread badge on the conversation list clears instantly.
+//
+// 3. Requests browser notification permission on first render.
+//
+// 4. `deliveryStatus` now includes "sending" for ghost messages.
+//
+// 5. Improved empty-state and loading skeleton spacing.
+
 "use client";
+
 import { useEffect, useRef, useState } from "react";
 import { Search, Phone, Video, MoreHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,6 +24,7 @@ import { MessageInput } from "./message-input";
 import { useMessages, useTypingIndicator } from "@/lib/hooks/use-messages";
 import { useCall } from "@/lib/hooks/use-call";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useChatStore } from "@/lib/stores/chat-store";
 import type { UserModel } from "@/types/models";
 import { ConversationContextMenu } from "./conversation-context-menu";
 import { CallOverlay } from "./call-overlay";
@@ -38,7 +55,6 @@ function groupMessages<
       i === 0 ||
       new Date(msgs[i - 1].createdAtUtc).toDateString() !==
         new Date(msg.createdAtUtc).toDateString(),
-    // Track whether this is the very first message overall (no top margin needed)
     isFirst: i === 0,
   }));
 }
@@ -60,19 +76,37 @@ export function ChatWindow({
   otherUserLastReadAt,
 }: ChatWindowProps) {
   const currentUserId = useAuthStore((s) => s.user?.id);
-  const { messages, isLoading } = useMessages(channelId);
+  const { messages, isLoading, sendMessage } = useMessages(channelId);
   const { typingUserIds, sendTyping } = useTypingIndicator(channelId);
+
+  const setActiveChannel = useChatStore((s) => s.setActiveChannel);
+  const resetUnread = useChatStore((s) => s.resetUnread);
+  const requestNotificationPermission = useChatStore(
+    (s) => s.requestNotificationPermission,
+  );
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
+  // ── Mark channel active & request notification permission ────────────────
+  useEffect(() => {
+    setActiveChannel(channelId);
+    resetUnread(channelId);
+    // Ask once — browser ignores subsequent calls if already granted/denied
+    requestNotificationPermission();
+
+    return () => {
+      setActiveChannel(null);
+    };
+  }, [channelId, setActiveChannel, resetUnread, requestNotificationPermission]);
+
+  // ── Auto-scroll ───────────────────────────────────────────────────────────
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
-
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-
     if (nearBottom) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       setShowScrollToBottom(false);
@@ -119,7 +153,7 @@ export function ChatWindow({
       style={{ borderRadius: 24 }}
       onClick={() => setContextMenuOpen(false)}
     >
-      {/* ── Header ──────────────────────────────────────────────────── */}
+      {/* ── Header ───────────────────────────────────────────────────── */}
       <div
         className="flex shrink-0 items-center justify-between px-6"
         style={{ height: 60, borderBottom: "1px solid #f0f2f5" }}
@@ -142,7 +176,7 @@ export function ChatWindow({
               {otherUser.name}
             </p>
             <p
-              className="font-medium"
+              className="font-medium transition-colors"
               style={{
                 fontSize: 12,
                 lineHeight: "16px",
@@ -208,7 +242,7 @@ export function ChatWindow({
         </div>
       </div>
 
-      {/* ── Message content area ─────────────────────────────────────── */}
+      {/* ── Message area ────────────────────────────────────────────── */}
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto relative"
@@ -217,10 +251,11 @@ export function ChatWindow({
           backgroundColor: "#f7f9fb",
           borderRadius: 16,
           margin: "12px 12px 0 12px",
-          padding: "16px 16px",
+          padding: "16px",
         }}
       >
         {isLoading ? (
+          /* Loading skeleton */
           <div className="flex flex-col gap-4">
             {Array.from({ length: 5 }).map((_, i) => (
               <div
@@ -235,6 +270,7 @@ export function ChatWindow({
             ))}
           </div>
         ) : messages.length === 0 ? (
+          /* Empty state */
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <Avatar style={{ width: 56, height: 56 }}>
               <AvatarImage src={otherUser.avatarUrl ?? undefined} />
@@ -253,30 +289,34 @@ export function ChatWindow({
             </div>
           </div>
         ) : (
-          // gap-1 (4px) handles within-group spacing.
-          // Inter-group spacing (12px) is added via mt-3 on the wrapper div
-          // when showAvatar is true and it's not the very first message.
           <div className="flex flex-col gap-1">
             {grouped.map((msg) => {
               const isOwn = msg.authorId === currentUserId;
-              const isReadByOther =
-                isOwn && otherUserLastReadAt
-                  ? new Date(msg.createdAtUtc).getTime() <=
-                    new Date(otherUserLastReadAt).getTime()
-                  : false;
 
-              // FIX: add mt-3 (12px) to the first bubble of each new sender group
-              // to match Figma's 12px spacing between message-bubble-container groups.
-              // Only skip top margin for the very first message in the conversation.
+              // Delivery status for own messages
+              let deliveryStatus: "sending" | "sent" | "read" | undefined;
+              if (isOwn) {
+                if (msg._status === "sending") {
+                  deliveryStatus = "sending";
+                } else if (
+                  otherUserLastReadAt &&
+                  new Date(msg.createdAtUtc).getTime() <=
+                    new Date(otherUserLastReadAt).getTime()
+                ) {
+                  deliveryStatus = "read";
+                } else {
+                  deliveryStatus = "sent";
+                }
+              }
+
               const isGroupStart = msg.showAvatar && !msg.isFirst;
 
               return (
                 <div key={msg.id} className={isGroupStart ? "mt-3" : undefined}>
-                  {/* Day divider pill */}
                   {msg.showDayDivider && (
                     <div className="flex justify-center my-4">
                       <span
-                        className="rounded-full bg-white px-4 py-1 text-[14px] font-medium text-[#596881]"
+                        className="rounded-full bg-white px-4 py-1 text-[12px] font-medium text-[#596881]"
                         style={{ lineHeight: "20px" }}
                       >
                         {getDayLabel(msg.createdAtUtc)}
@@ -290,9 +330,7 @@ export function ChatWindow({
                     }
                     isOwn={isOwn}
                     showAvatar={msg.showAvatar}
-                    deliveryStatus={
-                      isOwn ? (isReadByOther ? "read" : "sent") : undefined
-                    }
+                    deliveryStatus={deliveryStatus}
                   />
                 </div>
               );
@@ -333,19 +371,23 @@ export function ChatWindow({
       </div>
 
       {/* ── Input ────────────────────────────────────────────────────── */}
-      <MessageInput channelId={channelId} onTyping={sendTyping} />
+      <MessageInput
+        channelId={channelId}
+        onTyping={sendTyping}
+        onSend={sendMessage}
+      />
 
-      {/* Scroll-to-bottom pill */}
+      {/* ── Scroll-to-bottom pill ─────────────────────────────────────── */}
       {showScrollToBottom && (
         <button
           onClick={scrollToBottom}
           className="absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-[#111625] px-4 py-1.5 text-[12px] font-medium text-white shadow-lg hover:bg-[#111625]/90 transition-colors"
         >
-          New messages • Jump to latest
+          New messages · Jump to latest ↓
         </button>
       )}
 
-      {/* Call overlay */}
+      {/* ── Call overlay ──────────────────────────────────────────────── */}
       {callKind && callPhase !== "idle" && (
         <CallOverlay
           otherUser={otherUser}
