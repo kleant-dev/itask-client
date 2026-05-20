@@ -137,7 +137,6 @@ export function MessageBubble({
 
   const name = author?.name ?? "You";
   const isSending = message._status === "sending";
-
   return (
     <div
       className={cn("group flex items-end gap-2", isOwn && "flex-row-reverse")}
@@ -229,7 +228,6 @@ export function MessageBubble({
             )}
           </div>
         )}
-
         {/* ── Timestamp + receipt ── */}
         {/* Show for own messages always (not just showAvatar) so the receipt
             icon is never hidden in the middle of a run. */}

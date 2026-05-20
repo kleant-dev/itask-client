@@ -104,6 +104,8 @@ export function useMessages(channelId: string | null) {
 
     setup();
 
+    hub.markMessagesAsRead(channelId).catch(() => {});
+
     // New message received
     const unsubReceive = hub.onReceiveMessage((msg) => {
       if (msg.channelId !== channelId) {
@@ -173,10 +175,35 @@ export function useMessages(channelId: string | null) {
       );
     });
 
+    const unsubRead = hub.onMessagesRead(
+      ({ channelId: ch, readByUserId, readAtUtc }) => {
+        if (ch !== channelId) return;
+
+        // Update readAtUtc on all messages sent before readAtUtc
+        queryClient.setQueryData<PagedResponse<MessageModel>>(
+          queryKey,
+          (prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              items: prev.items.map((m) =>
+                m.authorId !== readByUserId && // only the OTHER user's reads matter
+                m.readAtUtc === null &&
+                new Date(m.createdAtUtc) <= new Date(readAtUtc)
+                  ? { ...m, readAtUtc }
+                  : m,
+              ),
+            };
+          },
+        );
+      },
+    );
+
     return () => {
       unsubReceive();
       unsubEdited();
       unsubDeleted();
+      unsubRead();
       if (joined) hub.leaveChannel(channelId);
     };
     // activeChannelId is intentionally excluded: changing which channel is

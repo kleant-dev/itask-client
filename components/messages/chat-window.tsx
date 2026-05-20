@@ -69,12 +69,7 @@ function getDayLabel(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function ChatWindow({
-  channelId,
-  otherUser,
-  currentUserLastReadAt,
-  otherUserLastReadAt,
-}: ChatWindowProps) {
+export function ChatWindow({ channelId, otherUser }: ChatWindowProps) {
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { messages, isLoading, sendMessage } = useMessages(channelId);
   const { typingUserIds, sendTyping } = useTypingIndicator(channelId);
@@ -128,6 +123,7 @@ export function ChatWindow({
   }
 
   const grouped = groupMessages(messages);
+  console.log(grouped);
   const isOtherUserTyping =
     otherUser.id !== undefined && typingUserIds.has(otherUser.id);
 
@@ -291,6 +287,7 @@ export function ChatWindow({
         ) : (
           <div className="flex flex-col gap-1">
             {grouped.map((msg) => {
+              console.log(msg);
               const isOwn = msg.authorId === currentUserId;
 
               // Delivery status for own messages
@@ -298,19 +295,14 @@ export function ChatWindow({
               if (isOwn) {
                 if (msg._status === "sending") {
                   deliveryStatus = "sending";
-                } else if (
-                  otherUserLastReadAt &&
-                  new Date(msg.createdAtUtc).getTime() <=
-                    new Date(otherUserLastReadAt).getTime()
-                ) {
-                  deliveryStatus = "read";
+                } else if (msg.readAtUtc !== null) {
+                  deliveryStatus = "read"; // ← driven by the message's own readAtUtc
                 } else {
                   deliveryStatus = "sent";
                 }
               }
 
               const isGroupStart = msg.showAvatar && !msg.isFirst;
-
               return (
                 <div key={msg.id} className={isGroupStart ? "mt-3" : undefined}>
                   {msg.showDayDivider && (

@@ -14,6 +14,7 @@ import { startConnection, onReceiveMessage } from "@/lib/services/chat-hub";
 import { messagesApi } from "@/lib/api/messages";
 import type { UserModel } from "@/types/models";
 import type { MessageModel } from "@/types/message-models";
+import { ChannelType } from "@/types/message-models";
 
 /** Mirrors server's ComputeParticipantHash: SHA256(sorted ids joined by "|") */
 async function computeParticipantHash(
@@ -106,15 +107,19 @@ export default function MessagesPage() {
   }, [hasHydrated, currentUser?.id, userMap.size]);
 
   // type === 2 is DirectMessage
+  console.log(channelsData);
   const channels = (channelsData?.items ?? []).filter(
-    (ch) => Number(ch.type) === 2,
+    (ch) => ch.type === "DirectMessage",
   );
-
   const conversationItems = channels
     .flatMap((ch) => {
-      if (!ch.participantHash) return [];
+      if (!ch.participantHash) {
+        return [];
+      }
       const otherUser = hashToUser.get(ch.participantHash);
-      if (!otherUser) return [];
+      if (!otherUser) {
+        return [];
+      }
       const last = lastMessages.get(ch.id);
       return [
         {

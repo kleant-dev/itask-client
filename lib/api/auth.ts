@@ -51,6 +51,7 @@ export async function loginWithEmail(
     return { success: true, data: response.data };
   } catch (error) {
     const axiosError = error as AxiosError<{ detail?: string }>;
+    console.log(axiosError);
     const errorMessage =
       axiosError.response?.status === 401
         ? "Invalid email or password"

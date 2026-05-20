@@ -12,7 +12,10 @@ export interface MessageModel {
   body: string;
   createdAtUtc: string;
   updatedAtUtc: string;
-  // Enriched client-side from user lookup:
+  readAtUtc: string | null;
+  showAvatar: boolean;
+  showDayDivider: boolean;
+  isFirst: boolean;
   author?: UserModel;
 }
 

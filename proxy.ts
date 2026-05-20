@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-// TODO: Extract the paths in a separate file
-const PUBLIC_PATHS = ["/login", "/register", "/forgot-password"];
-const AUTH_PATHS = ["/login", "/register", "/forgot-password"];
+import { AUTH_PATHS, PUBLIC_PATHS } from "@/routes";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
