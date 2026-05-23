@@ -22,7 +22,19 @@ export const messagesApi = {
   },
 };
 
+export interface ChannelUnreadSummary {
+  channels: { channelId: string; unreadCount: number }[];
+  totalUnread: number;
+}
+
 export const channelsApi = {
+  getUnreadSummary: async (workspaceId: string): Promise<ChannelUnreadSummary> => {
+    const { data } = await apiClient.get<ChannelUnreadSummary>(
+      `/workspaces/${workspaceId}/channels/unread-summary`,
+    );
+    return data;
+  },
+
   /** GET /workspaces/{workspaceId}/channels */
   getByWorkspace: async (
     workspaceId: string,

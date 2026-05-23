@@ -11,10 +11,11 @@
 
 "use client";
 
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, KeyboardEvent, ChangeEvent } from "react";
 import { Mic, Smile, Paperclip, Send } from "lucide-react";
 import { toast } from "sonner";
 import * as hub from "@/lib/services/chat-hub";
+import { filesApi } from "@/lib/api/files";
 
 interface MessageInputProps {
   channelId: string;
@@ -36,7 +37,9 @@ export function MessageInput({
 }: MessageInputProps) {
   const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function autoResize() {
     const el = textareaRef.current;
@@ -77,7 +80,34 @@ export function MessageInput({
     onTyping?.();
   }
 
-  const canSend = value.trim().length > 0 && !sending && !disabled;
+  async function handleFileSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || sending || uploading || disabled) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File must be 10 MB or smaller.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const uploaded = await filesApi.upload(file);
+      const label = uploaded.fileName || "attachment";
+      const body = `${label}: ${uploaded.fileUrl}`;
+      if (onSend) {
+        await onSend(body);
+      } else {
+        await hub.sendMessage(channelId, body);
+      }
+    } catch {
+      toast.error("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const canSend = value.trim().length > 0 && !sending && !uploading && !disabled;
 
   return (
     <div className="px-3 pb-3 pt-2 shrink-0">
@@ -114,10 +144,18 @@ export function MessageInput({
           >
             <Smile style={{ width: 14, height: 14 }} strokeWidth={1.5} />
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileSelected}
+          />
           <button
             type="button"
             title="Attach file"
-            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-[#f7f9fb] transition-colors"
+            disabled={disabled || uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[#596881] hover:bg-[#f7f9fb] transition-colors disabled:opacity-40"
           >
             <Paperclip style={{ width: 14, height: 14 }} strokeWidth={1.5} />
           </button>

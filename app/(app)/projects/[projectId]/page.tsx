@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ProjectToolbar } from "@/components/projects/project-toolbar";
 import type { ProjectViewMode } from "@/components/projects/project-toolbar";
@@ -9,6 +9,7 @@ import { ProjectKanban } from "@/components/projects/project-kanban";
 import { ProjectTaskList } from "@/components/projects/project-task-list";
 import { ProjectTimelinePlaceholder } from "@/components/projects/project-timeline-placeholder";
 import { CreateTaskDialog } from "@/components/projects/create-task-dialog";
+import { TaskDetailDialog } from "@/components/projects/task-detail-dialog";
 import {
   useProject,
   useProjectTasks,
@@ -17,8 +18,10 @@ import { useWorkspaces } from "@/lib/hooks/use-workspaces";
 import { useUiStore } from "@/lib/stores/ui-store";
 import type { TaskPriority } from "@/types/models";
 
-export default function ProjectDetailPage() {
+function ProjectDetailPageContent() {
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const projectId = params.projectId as string;
   const setCurrentWorkspaceId = useUiStore((s) => s.setCurrentWorkspaceId);
   const { activeWorkspace } = useWorkspaces();
@@ -33,12 +36,18 @@ export default function ProjectDetailPage() {
     "all",
   );
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (project?.workspaceId) {
       setCurrentWorkspaceId(project.workspaceId);
     }
   }, [project?.workspaceId, setCurrentWorkspaceId]);
+
+  useEffect(() => {
+    const taskId = searchParams.get("task");
+    if (taskId) setDetailTaskId(taskId);
+  }, [searchParams]);
 
   const tasks = tasksData?.items ?? [];
   const workspaceId = project?.workspaceId ?? activeWorkspace?.id ?? "";
@@ -75,11 +84,19 @@ export default function ProjectDetailPage() {
       )}
 
       {!tasksLoading && view === "board" && (
-        <ProjectKanban tasks={tasks} priorityFilter={priorityFilter} />
+        <ProjectKanban
+          tasks={tasks}
+          priorityFilter={priorityFilter}
+          onTaskClick={setDetailTaskId}
+        />
       )}
 
       {!tasksLoading && view === "list" && (
-        <ProjectTaskList tasks={tasks} priorityFilter={priorityFilter} />
+        <ProjectTaskList
+          tasks={tasks}
+          priorityFilter={priorityFilter}
+          onTaskClick={setDetailTaskId}
+        />
       )}
 
       {!tasksLoading && view === "timeline" && <ProjectTimelinePlaceholder />}
@@ -92,6 +109,31 @@ export default function ProjectDetailPage() {
           workspaceId={workspaceId}
         />
       )}
+
+      <TaskDetailDialog
+        taskId={detailTaskId}
+        open={detailTaskId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailTaskId(null);
+            if (searchParams.get("task")) {
+              router.replace(`/projects/${projectId}`);
+            }
+          }
+        }}
+      />
     </div>
+  );
+}
+
+export default function ProjectDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <p className="text-p-small text-neutral-500">Loading project…</p>
+      }
+    >
+      <ProjectDetailPageContent />
+    </Suspense>
   );
 }

@@ -30,4 +30,13 @@ export const usersApi = {
     const response = await apiClient.patch("/users/me", data);
     return response.data;
   },
+
+  uploadAvatar: async (file: File): Promise<User> => {
+    const form = new FormData();
+    form.append("file", file);
+    const response = await apiClient.post<User>("/users/me/avatar", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
 };

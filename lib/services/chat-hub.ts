@@ -79,6 +79,11 @@ export type MessagesReadHandler = (data: {
   readAtUtc: string;
 }) => void;
 
+export type MessagesMarkedReadHandler = (data: {
+  channelId: string;
+  readAtUtc: string;
+}) => void;
+
 export type IncomingCallHandler = (data: IncomingCallPayload) => void;
 export type CallEndedHandler = (data: EndCallPayload) => void;
 export type CallSignalHandler = (data: CallSignal) => void;
@@ -216,10 +221,16 @@ export function onReceiveMessage(handler: MessageHandler): () => void {
 }
 
 export async function markMessagesAsRead(channelId: string): Promise<void> {
+  await startConnection();
+  await getConnection().invoke("MarkMessagesAsRead", channelId);
+}
+
+export function onMessagesMarkedRead(
+  handler: MessagesMarkedReadHandler,
+): () => void {
   const conn = getConnection();
-  if (conn.state === HubConnectionState.Connected) {
-    await conn.invoke("MarkMessagesAsRead", channelId);
-  }
+  conn.on("MessagesMarkedRead", handler);
+  return () => conn.off("MessagesMarkedRead", handler);
 }
 
 export function onMessagesRead(handler: MessagesReadHandler): () => void {
@@ -262,4 +273,18 @@ export function onCallSignal(handler: CallSignalHandler): () => void {
   const conn = getConnection();
   conn.on("CallSignal", handler);
   return () => conn.off("CallSignal", handler);
+}
+
+export type NotificationReceivedHandler = (notification: {
+  id: string;
+  title: string;
+  body?: string | null;
+}) => void;
+
+export function onNotificationReceived(
+  handler: NotificationReceivedHandler,
+): () => void {
+  const conn = getConnection();
+  conn.on("NotificationReceived", handler);
+  return () => conn.off("NotificationReceived", handler);
 }

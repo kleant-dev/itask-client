@@ -27,6 +27,7 @@ import { useWorkspaces } from "@/lib/hooks/use-workspaces";
 import { useWorkspaceProjects } from "@/lib/hooks/use-projects";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
+import { CreateWorkspaceDialog } from "@/components/workspaces/create-workspace-dialog";
 
 interface NavItem {
   icon: React.ElementType;
@@ -43,6 +44,7 @@ const menuItems: NavItem[] = [
 
 export function AppSidebar() {
   const [createProjectOpen, setCreateProjectOpen] = React.useState(false);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = React.useState(false);
   const pathname = usePathname();
   // BUG FIX: We read sidebarOpen but fix the layout by using width-based transitions
   // instead of translateX. The old approach used `-translate-x-full` which kept the
@@ -145,6 +147,13 @@ export function AppSidebar() {
                     <span className="truncate text-[13px]">{ws.name}</span>
                   </DropdownMenuItem>
                 ))}
+                <DropdownMenuItem
+                  onClick={() => setCreateWorkspaceOpen(true)}
+                  className="gap-2 text-[#375dfb]"
+                >
+                  <Plus className="h-4 w-4" />
+                  New workspace
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -293,6 +302,10 @@ export function AppSidebar() {
         open={createProjectOpen}
         onOpenChange={setCreateProjectOpen}
         workspaceId={activeWorkspace?.id}
+      />
+      <CreateWorkspaceDialog
+        open={createWorkspaceOpen}
+        onOpenChange={setCreateWorkspaceOpen}
       />
     </aside>
   );

@@ -16,11 +16,12 @@
 // genuinely has no saved preference (first-time login or cleared storage).
 
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { workspacesApi } from "@/lib/api/workspaces";
 import type { WorkspaceModel } from "@/types/models";
 import type { PagedResponse } from "@/types/api";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { slugifyWorkspaceName } from "@/lib/utils/workspace";
 
 export function useWorkspaces() {
   const currentWorkspaceId = useUiStore((s) => s.currentWorkspaceId);
@@ -63,4 +64,33 @@ export function useWorkspaces() {
     currentWorkspaceId,
     setCurrentWorkspaceId,
   };
+}
+
+export function useCreateWorkspace() {
+  const queryClient = useQueryClient();
+  const setCurrentWorkspaceId = useUiStore((s) => s.setCurrentWorkspaceId);
+
+  return useMutation({
+    mutationFn: ({
+      name,
+      slug,
+      description,
+      ownerId,
+    }: {
+      name: string;
+      slug?: string;
+      description?: string;
+      ownerId: string;
+    }) =>
+      workspacesApi.create({
+        ownerId,
+        name: name.trim(),
+        slug: slug?.trim() || slugifyWorkspaceName(name),
+        description: description?.trim() || undefined,
+      }),
+    onSuccess: (workspace) => {
+      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+      setCurrentWorkspaceId(workspace.id);
+    },
+  });
 }

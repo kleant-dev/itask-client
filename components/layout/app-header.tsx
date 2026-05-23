@@ -19,9 +19,7 @@ import { NotificationPopup } from "@/components/notifications/notification-popup
 import { ProfileDropdown } from "@/components/layout/profile-dropdown";
 import { SearchModal } from "@/components/search/search-modal";
 import { useUiStore } from "@/lib/stores/ui-store";
-
-// Unread count — in a real app this would come from an API/store
-const UNREAD_COUNT = 3;
+import { useNotificationUnreadCount } from "@/lib/hooks/use-notifications";
 
 export function AppHeader() {
   const pathname = usePathname();
@@ -41,6 +39,7 @@ export function AppHeader() {
 
   const isProjects = headerLabel === "Projects";
 
+  const unreadCount = useNotificationUnreadCount();
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -143,7 +142,7 @@ export function AppHeader() {
               aria-label="Notifications"
             >
               <Bell className="h-4 w-4" strokeWidth={1.5} />
-              {UNREAD_COUNT > 0 && (
+              {unreadCount > 0 && (
                 <span className="absolute right-1.5 top-1.5 flex h-[7px] w-[7px] items-center justify-center rounded-full bg-[#df1c41]" />
               )}
             </button>

@@ -2,10 +2,12 @@
 import { RouteGuard } from "@/components/auth/route-guard";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
+import { ChatLayoutShell } from "@/components/messages/chat-layout-shell";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RouteGuard type="auth">
+      <ChatLayoutShell>
       {/* Background color: #F7F9FB from Figma */}
       <div className="flex h-screen bg-[#F7F9FB]">
         {/* Sidebar: 260px width */}
@@ -22,6 +24,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      </ChatLayoutShell>
     </RouteGuard>
   );
 }

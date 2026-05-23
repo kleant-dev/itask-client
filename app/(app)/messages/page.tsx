@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { ConversationList } from "@/components/messages/conversation-list";
 import { ChatWindow } from "@/components/messages/chat-window";
 import { EmptyMessageState } from "@/components/messages/empty-message-state";
@@ -9,14 +10,15 @@ import {
   useWorkspaceChannels,
   useWorkspaceMembers,
 } from "@/lib/hooks/use-channels";
+import { useChannelUnreadSummary } from "@/lib/hooks/use-channel-unread";
+import { useJoinChannelGroups } from "@/lib/hooks/use-join-channel-groups";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { startConnection, onReceiveMessage } from "@/lib/services/chat-hub";
+import { useChatStore } from "@/lib/stores/chat-store";
+import { ensureChatRealtimeHandlers } from "@/lib/services/chat-realtime";
 import { messagesApi } from "@/lib/api/messages";
 import type { UserModel } from "@/types/models";
 import type { MessageModel } from "@/types/message-models";
-import { ChannelType } from "@/types/message-models";
 
-/** Mirrors server's ComputeParticipantHash: SHA256(sorted ids joined by "|") */
 async function computeParticipantHash(
   id1: string,
   id2: string,
@@ -29,22 +31,15 @@ async function computeParticipantHash(
     .join("");
 }
 
-/**
- * Fetches the single most-recent message for a channel.
- * The server always returns messages oldest-first (ORDER BY createdAtUtc ASC),
- * so we fetch the last page and take the last item.
- */
 async function fetchLastMessage(
   channelId: string,
 ): Promise<MessageModel | null> {
-  // First fetch page 1 with pageSize 1 just to get totalCount
   const probe = await messagesApi.getByChannel(channelId, {
     pageNumber: 1,
     pageSize: 1,
   });
   if (probe.totalCount === 0) return null;
 
-  // Jump straight to the last page
   const lastPage = probe.totalPages;
   const result = await messagesApi.getByChannel(channelId, {
     pageNumber: lastPage,
@@ -53,10 +48,17 @@ async function fetchLastMessage(
   return result.items[result.items.length - 1] ?? null;
 }
 
-export default function MessagesPage() {
+function MessagesPageContent() {
+  const searchParams = useSearchParams();
+  const channelFromUrl = searchParams.get("channel");
+
   const currentUser = useAuthStore((s) => s.user);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
-  const accessToken = useAuthStore((s) => s.accessToken);
+  const unreadCounts = useChatStore((s) => s.unreadCounts);
+  const lastMessagesByChannel = useChatStore((s) => s.lastMessagesByChannel);
+  const upsertLastMessage = useChatStore((s) => s.upsertLastMessage);
+  const resetUnread = useChatStore((s) => s.resetUnread);
+  const setActiveChannel = useChatStore((s) => s.setActiveChannel);
 
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
     null,
@@ -65,32 +67,22 @@ export default function MessagesPage() {
     null,
   );
   const [newMessageOpen, setNewMessageOpen] = useState(false);
-
-  // hash → otherUser, computed once we know currentUser + workspace members
   const [hashToUser, setHashToUser] = useState<Map<string, UserModel>>(
-    new Map(),
-  );
-
-  // channelId → last MessageModel, updated on load + real-time
-  const [lastMessages, setLastMessages] = useState<Map<string, MessageModel>>(
-    new Map(),
-  );
-
-  // channelId → unread message count for the current user (client-side)
-  const [unreadCounts, setUnreadCounts] = useState<Map<string, number>>(
     new Map(),
   );
 
   const { data: channelsData, isLoading } = useWorkspaceChannels();
   const { data: membersData } = useWorkspaceMembers();
+  useChannelUnreadSummary();
 
-  // Build userId → UserModel map
-  const userMap = new Map<string, UserModel>();
-  for (const m of membersData?.items ?? []) {
-    if (m.user) userMap.set(m.userId, m.user as UserModel);
-  }
+  const userMap = useMemo(() => {
+    const map = new Map<string, UserModel>();
+    for (const m of membersData?.items ?? []) {
+      if (m.user) map.set(m.userId, m.user as UserModel);
+    }
+    return map;
+  }, [membersData?.items]);
 
-  // Compute participantHash for every other workspace member
   useEffect(() => {
     if (!hasHydrated || !currentUser || userMap.size === 0) return;
     const others = Array.from(userMap.values()).filter(
@@ -104,101 +96,81 @@ export default function MessagesPage() {
         return [hash, u] as const;
       }),
     ).then((entries) => setHashToUser(new Map(entries)));
-  }, [hasHydrated, currentUser?.id, userMap.size]);
+  }, [hasHydrated, currentUser?.id, userMap]);
 
-  // type === 2 is DirectMessage
-  console.log(channelsData);
   const channels = (channelsData?.items ?? []).filter(
     (ch) => ch.type === "DirectMessage",
   );
-  const conversationItems = channels
-    .flatMap((ch) => {
-      if (!ch.participantHash) {
-        return [];
-      }
-      const otherUser = hashToUser.get(ch.participantHash);
-      if (!otherUser) {
-        return [];
-      }
-      const last = lastMessages.get(ch.id);
-      return [
-        {
-          channel: ch,
-          otherUser,
-          lastMessage: last?.body,
-          lastMessageAt: last?.createdAtUtc,
-          unreadCount: unreadCounts.get(ch.id) ?? 0,
-        },
-      ];
-    })
-    .sort((a, b) => {
-      if (!a.lastMessageAt && !b.lastMessageAt) return 0;
-      if (!a.lastMessageAt) return 1;
-      if (!b.lastMessageAt) return -1;
-      return (
-        new Date(b.lastMessageAt).getTime() -
-        new Date(a.lastMessageAt).getTime()
-      );
-    });
 
-  // Fetch the actual last message for each channel (server is oldest-first, so we
-  // jump to the last page rather than blindly taking items[0])
+  const channelIds = useMemo(() => channels.map((c) => c.id), [channels]);
+
+  useEffect(() => {
+    ensureChatRealtimeHandlers().catch(() => {});
+  }, []);
+
+  useJoinChannelGroups(channelIds);
+
+  const conversationItems = useMemo(() => {
+    return channels
+      .flatMap((ch) => {
+        if (!ch.participantHash) return [];
+        const otherUser = hashToUser.get(ch.participantHash);
+        if (!otherUser) return [];
+        const last = lastMessagesByChannel[ch.id];
+        const isOwnLast = last?.authorId === currentUser?.id;
+        return [
+          {
+            channel: ch,
+            otherUser,
+            lastMessage: last?.body,
+            lastMessageAt: last?.createdAtUtc,
+            lastMessageAuthorId: last?.authorId,
+            lastMessageIsOwn: isOwnLast,
+            lastMessageReadAt: isOwnLast ? last?.readAtUtc : null,
+            unreadCount: unreadCounts[ch.id] ?? 0,
+          },
+        ];
+      })
+      .sort((a, b) => {
+        if (!a.lastMessageAt && !b.lastMessageAt) return 0;
+        if (!a.lastMessageAt) return 1;
+        if (!b.lastMessageAt) return -1;
+        return (
+          new Date(b.lastMessageAt).getTime() -
+          new Date(a.lastMessageAt).getTime()
+        );
+      });
+  }, [
+    channels,
+    hashToUser,
+    lastMessagesByChannel,
+    unreadCounts,
+    currentUser?.id,
+  ]);
+
   useEffect(() => {
     if (channels.length === 0 || hashToUser.size === 0) return;
 
     channels.forEach(async (ch) => {
       try {
         const last = await fetchLastMessage(ch.id);
-        if (last) {
-          setLastMessages((prev) => new Map(prev).set(ch.id, last));
-        }
+        if (last) upsertLastMessage(last);
       } catch {
-        // Non-fatal — channel might have no messages yet
+        // channel may have no messages
       }
     });
-  }, [channels.length, hashToUser.size]);
+  }, [channels.length, hashToUser.size, upsertLastMessage]);
 
-  // Update last message + unread counts in real-time when a new message arrives
-  useEffect(() => {
-    const unsub = onReceiveMessage((msg) => {
-      // Keep last message per channel in sync
-      setLastMessages((prev) => {
-        const existing = prev.get(msg.channelId);
-        if (
-          !existing ||
-          new Date(msg.createdAtUtc) > new Date(existing.createdAtUtc)
-        ) {
-          return new Map(prev).set(msg.channelId, msg);
-        }
-        return prev;
-      });
-
-      // Maintain a WhatsApp-style unread counter per conversation.
-      setUnreadCounts((prev) => {
-        const next = new Map(prev);
-        const isOwn = msg.authorId === currentUser?.id;
-
-        // Never increment unread for messages we authored.
-        if (isOwn) return next;
-
-        // If we're currently viewing this channel, treat incoming messages
-        // as read immediately.
-        if (msg.channelId === selectedChannelId) {
-          next.set(msg.channelId, 0);
-        } else {
-          const current = next.get(msg.channelId) ?? 0;
-          next.set(msg.channelId, current + 1);
-        }
-
-        return next;
-      });
-    });
-    return unsub;
-  }, [currentUser?.id, selectedChannelId]);
+  const isReady = hasHydrated && hashToUser.size > 0;
 
   useEffect(() => {
-    if (accessToken) startConnection();
-  }, [accessToken]);
+    if (!channelFromUrl || !isReady) return;
+    if (channels.some((c) => c.id === channelFromUrl)) {
+      setSelectedChannelId(channelFromUrl);
+      setActiveChannel(channelFromUrl);
+      resetUnread(channelFromUrl);
+    }
+  }, [channelFromUrl, isReady, channels, setActiveChannel, resetUnread]);
 
   useEffect(() => {
     if (!selectedChannelId || !currentUser) return;
@@ -206,7 +178,7 @@ export default function MessagesPage() {
       (i) => i.channel.id === selectedChannelId,
     );
     if (item) setSelectedOtherUser(item.otherUser);
-  }, [selectedChannelId, conversationItems.length]);
+  }, [selectedChannelId, conversationItems, currentUser]);
 
   const workspaceMembers = Array.from(userMap.values()).filter(
     (u) => u.id !== currentUser?.id,
@@ -214,29 +186,14 @@ export default function MessagesPage() {
 
   function handleSelectChannel(channelId: string) {
     setSelectedChannelId(channelId);
-    // Opening a conversation clears its unread counter.
-    setUnreadCounts((prev) => {
-      const next = new Map(prev);
-      next.set(channelId, 0);
-      return next;
-    });
+    setActiveChannel(channelId);
+    resetUnread(channelId);
   }
 
   function handleChannelCreated(channelId: string, otherUser: UserModel) {
     handleSelectChannel(channelId);
     setSelectedOtherUser(otherUser);
   }
-
-  const isReady = hasHydrated && hashToUser.size > 0;
-
-  const selectedChannel = channels.find((ch) => ch.id === selectedChannelId);
-  const selectedMembers = selectedChannel?.members ?? [];
-  const selectedCurrentMember = currentUser
-    ? selectedMembers.find((m) => m.userId === currentUser.id)
-    : undefined;
-  const selectedOtherMember = selectedOtherUser
-    ? selectedMembers.find((m) => m.userId === selectedOtherUser.id)
-    : undefined;
 
   return (
     <div className="-m-6 flex h-full overflow-hidden">
@@ -246,14 +203,13 @@ export default function MessagesPage() {
         onSelect={handleSelectChannel}
         onNewMessage={() => setNewMessageOpen(true)}
         isLoading={isLoading || !isReady}
+        currentUserId={currentUser?.id}
       />
       {selectedChannelId && selectedOtherUser ? (
         <ChatWindow
           key={selectedChannelId}
           channelId={selectedChannelId}
           otherUser={selectedOtherUser}
-          currentUserLastReadAt={selectedCurrentMember?.lastReadAtUtc ?? null}
-          otherUserLastReadAt={selectedOtherMember?.lastReadAtUtc ?? null}
         />
       ) : (
         <EmptyMessageState />
@@ -265,5 +221,19 @@ export default function MessagesPage() {
         onChannelCreated={handleChannelCreated}
       />
     </div>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="-m-6 flex h-full items-center justify-center text-[13px] text-neutral-500">
+          Loading messages…
+        </div>
+      }
+    >
+      <MessagesPageContent />
+    </Suspense>
   );
 }

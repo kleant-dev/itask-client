@@ -60,6 +60,7 @@ export const tasksApi = {
     taskId: string,
     data: Partial<CreateTaskRequest> & {
       completedAtUtc?: string | null;
+      assigneeUserIds?: string[];
     },
   ): Promise<TaskModel> => {
     const body: Record<string, unknown> = {};
@@ -74,6 +75,10 @@ export const tasksApi = {
     if (data.priority !== undefined) body.priority = data.priority;
     if (data.completedAtUtc !== undefined)
       body.completedAtUtc = data.completedAtUtc;
+    if ((data as { assigneeUserIds?: string[] }).assigneeUserIds !== undefined)
+      body.assigneeUserIds = (
+        data as { assigneeUserIds?: string[] }
+      ).assigneeUserIds;
 
     const response = await apiClient.patch<TaskModel>(`/tasks/${taskId}`, body);
     return response.data;

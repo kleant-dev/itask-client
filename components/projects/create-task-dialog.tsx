@@ -19,7 +19,7 @@ import type { TaskPriority } from "@/types/models";
 type FormValues = {
   title: string;
   description: string;
-  priority: "Low" | "Medium" | "High" | "Critical";
+  priority: TaskPriority;
   dueDate: string;
 };
 
@@ -126,7 +126,6 @@ export function CreateTaskDialog({
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
                 <option value="High">High</option>
-                <option value="Critical">Critical</option>
               </select>
             </div>
             <div className="space-y-2">

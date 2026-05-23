@@ -17,17 +17,18 @@ const priorityClass: Record<TaskPriority, string> = {
   Low: "text-neutral-500",
   Medium: "text-blue-600",
   High: "text-red-600",
-  Critical: "text-red-600",
 };
 
 interface ProjectTaskListProps {
   tasks: TaskModel[];
   priorityFilter: TaskPriority | "all";
+  onTaskClick?: (taskId: string) => void;
 }
 
 export function ProjectTaskList({
   tasks,
   priorityFilter,
+  onTaskClick,
 }: ProjectTaskListProps) {
   const rows = useMemo(() => {
     let list = tasks;
@@ -55,7 +56,20 @@ export function ProjectTaskList({
         rows.map((task) => (
           <div
             key={task.id}
-            className="grid grid-cols-[1fr_120px_100px_100px] gap-2 border-b border-neutral-100 px-4 py-3 text-[14px] last:border-0"
+            role={onTaskClick ? "button" : undefined}
+            tabIndex={onTaskClick ? 0 : undefined}
+            onClick={() => onTaskClick?.(task.id)}
+            onKeyDown={(e) => {
+              if (onTaskClick && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                onTaskClick(task.id);
+              }
+            }}
+            className={cn(
+              "grid grid-cols-[1fr_120px_100px_100px] gap-2 border-b border-neutral-100 px-4 py-3 text-[14px] last:border-0",
+              onTaskClick &&
+                "cursor-pointer hover:bg-neutral-50 transition-colors",
+            )}
           >
             <div>
               <div className="font-medium text-[#111625]">{task.title}</div>

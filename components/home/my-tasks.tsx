@@ -52,7 +52,7 @@ function mapStatusToTab(status: TaskStatus): TabFilter {
 
 function mapTaskToUi(task: TaskModel): UiTask {
   let priority: Priority = "Low";
-  if (task.priority === "High" || task.priority === "Critical") {
+  if (task.priority === "High") {
     priority = "High";
   } else if (task.priority === "Medium") {
     priority = "Medium";

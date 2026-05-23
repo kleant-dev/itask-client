@@ -19,6 +19,11 @@ export function useWorkspaceChannels() {
 
 export function useWorkspaceMembers() {
   const workspaceId = useUiStore((s) => s.currentWorkspaceId);
+  return useWorkspaceMembersById(workspaceId);
+}
+
+/** Load members for a specific workspace (e.g. task detail when project workspace differs). */
+export function useWorkspaceMembersById(workspaceId: string | null | undefined) {
   return useQuery<PagedResponse<WorkspaceMemberModel>>({
     queryKey: ["workspace-members", workspaceId],
     queryFn: () => workspacesApi.getMembers(workspaceId!, { pageSize: 100 }),

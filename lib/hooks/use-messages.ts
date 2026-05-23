@@ -28,7 +28,7 @@ import { messagesApi } from "@/lib/api/messages";
 import * as hub from "@/lib/services/chat-hub";
 import type { MessageModel } from "@/types/message-models";
 import type { PagedResponse } from "@/types/api";
-import { useChatStore, fireBrowserNotification } from "@/lib/stores/chat-store";
+import { useChatStore } from "@/lib/stores/chat-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
 
 // ── Extended message type ──────────────────────────────────────────────────────
@@ -54,7 +54,6 @@ export function useMessages(channelId: string | null) {
 
   const currentUserId = useAuthStore((s) => s.user?.id);
   const activeChannelId = useChatStore((s) => s.activeChannelId);
-  const incrementUnread = useChatStore((s) => s.incrementUnread);
 
   // ── REST initial load ────────────────────────────────────────────────────
   const { data, isLoading, isError } = useQuery<PagedResponse<MessageModel>>({
@@ -71,15 +70,14 @@ export function useMessages(channelId: string | null) {
 
   const serverMessages: ClientMessage[] = data?.items ?? [];
 
-  // Remove any optimistic entry whose real counterpart has arrived from the server.
-  const confirmedBodies = new Set(
-    serverMessages
-      .filter((m) => m.authorId === currentUserId)
-      .map((m) => m.body),
-  );
-
   const pendingOptimistic = optimisticMessages.filter(
-    (m) => !confirmedBodies.has(m.body),
+    (opt) =>
+      !serverMessages.some(
+        (s) =>
+          s.authorId === opt.authorId &&
+          s.body === opt.body &&
+          opt._status === "sending",
+      ),
   );
 
   // Final merged list, ordered by creation time.
@@ -91,40 +89,51 @@ export function useMessages(channelId: string | null) {
       new Date(a.createdAtUtc).getTime() - new Date(b.createdAtUtc).getTime(),
   );
 
+  const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleMarkRead = useCallback(() => {
+    if (!channelId) return;
+    if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
+    markReadTimerRef.current = setTimeout(() => {
+      hub.markMessagesAsRead(channelId).catch(() => {});
+    }, 400);
+  }, [channelId]);
+
   // ── SignalR real-time updates ─────────────────────────────────────────────
   useEffect(() => {
     if (!channelId) return;
 
     let joined = false;
+    let cancelled = false;
 
     const setup = async () => {
       await hub.joinChannel(channelId);
+      if (cancelled) return;
       joined = true;
+      await hub.markMessagesAsRead(channelId);
     };
 
-    setup();
+    setup().catch(() => {});
 
-    hub.markMessagesAsRead(channelId).catch(() => {});
+    const unsubMarkedRead = hub.onMessagesMarkedRead(({ channelId: ch }) => {
+      if (ch !== channelId) return;
+      queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+      queryClient.invalidateQueries({ queryKey: ["workspace-channels"] });
+      queryClient.invalidateQueries({ queryKey: ["channel-unread-summary"] });
+    });
 
     // New message received
     const unsubReceive = hub.onReceiveMessage((msg) => {
-      if (msg.channelId !== channelId) {
-        // Message for a channel the user is NOT currently reading
-        if (msg.channelId !== activeChannelId) {
-          incrementUnread(msg.channelId);
-          // author?.name would require an extra user lookup; skip for now
-          fireBrowserNotification("New message", msg.body);
-        }
-        return;
-      }
+      if (msg.channelId !== channelId) return;
 
-      // Remove matching optimistic ghost (same author + identical body)
+      scheduleMarkRead();
+
       setOptimisticMessages((prev) =>
         prev.filter(
           (opt) =>
             !(
-              opt.authorId === msg.authorId &&
               opt._status === "sending" &&
+              opt.authorId === msg.authorId &&
               opt.body === msg.body
             ),
         ),
@@ -187,8 +196,9 @@ export function useMessages(channelId: string | null) {
             return {
               ...prev,
               items: prev.items.map((m) =>
-                m.authorId !== readByUserId && // only the OTHER user's reads matter
-                m.readAtUtc === null &&
+                m.authorId === currentUserId &&
+                readByUserId !== currentUserId &&
+                !m.readAtUtc &&
                 new Date(m.createdAtUtc) <= new Date(readAtUtc)
                   ? { ...m, readAtUtc }
                   : m,
@@ -200,10 +210,13 @@ export function useMessages(channelId: string | null) {
     );
 
     return () => {
+      cancelled = true;
+      if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
       unsubReceive();
       unsubEdited();
       unsubDeleted();
       unsubRead();
+      unsubMarkedRead();
       if (joined) hub.leaveChannel(channelId);
     };
     // activeChannelId is intentionally excluded: changing which channel is
@@ -236,6 +249,7 @@ export function useMessages(channelId: string | null) {
         body: trimmed,
         createdAtUtc: now,
         updatedAtUtc: now,
+        readAtUtc: null,
         _clientId: clientId,
         _status: "sending",
       };

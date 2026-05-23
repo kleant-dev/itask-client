@@ -1,45 +1,57 @@
 // lib/stores/chat-store.ts
-//
-// Architectural note:
-// This store is intentionally NOT persisted. Unread counts are derived
-// from real-time SignalR events that occur in the current session.
-// Persisting them would risk stale counts after refreshing, since the
-// server is the true source of truth via `lastReadAtUtc`.
-//
-// Flow:
-//  1. When the messages page mounts, call `requestNotificationPermission()`.
-//  2. For every incoming SignalR message on an inactive channel,
-//     `incrementUnread(channelId)` is called from `use-messages.ts`.
-//  3. When the user opens a channel, call `resetUnread(channelId)` and
-//     `setActiveChannel(channelId)` — the count badge disappears instantly.
-
 import { create } from "zustand";
+import type { MessageModel } from "@/types/message-models";
 
 interface ChatState {
-  /** Per-channel unread message count (session only). */
   unreadCounts: Record<string, number>;
-
-  /**
-   * The channelId the user is currently reading.
-   * Used to suppress notifications and unread increments for the
-   * active channel even when the tab is in the foreground.
-   */
+  /** Latest message per channel — updated in real time via SignalR. */
+  lastMessagesByChannel: Record<string, MessageModel>;
   activeChannelId: string | null;
-
-  /** Mirrors the browser Notification API permission state. */
   notificationPermission: NotificationPermission | "unknown";
 
+  upsertLastMessage: (message: MessageModel) => void;
+  setLastMessages: (messages: Record<string, MessageModel>) => void;
   incrementUnread: (channelId: string) => void;
   resetUnread: (channelId: string) => void;
+  setUnreadCounts: (counts: Record<string, number>) => void;
   setActiveChannel: (channelId: string | null) => void;
-  /** Call once on messages page mount to prompt the user for permission. */
   requestNotificationPermission: () => Promise<void>;
 }
 
-export const useChatStore = create<ChatState>()((set) => ({
+export const useChatStore = create<ChatState>()((set, get) => ({
   unreadCounts: {},
+  lastMessagesByChannel: {},
   activeChannelId: null,
   notificationPermission: "unknown",
+
+  upsertLastMessage: (message) =>
+    set((state) => {
+      const existing = state.lastMessagesByChannel[message.channelId];
+      if (existing?.id === message.id) {
+        return {
+          lastMessagesByChannel: {
+            ...state.lastMessagesByChannel,
+            [message.channelId]: message,
+          },
+        };
+      }
+      if (
+        existing &&
+        new Date(existing.createdAtUtc).getTime() >
+          new Date(message.createdAtUtc).getTime()
+      ) {
+        return state;
+      }
+      return {
+        lastMessagesByChannel: {
+          ...state.lastMessagesByChannel,
+          [message.channelId]: message,
+        },
+      };
+    }),
+
+  setLastMessages: (messages) =>
+    set({ lastMessagesByChannel: { ...messages } }),
 
   incrementUnread: (channelId) =>
     set((state) => ({
@@ -50,11 +62,18 @@ export const useChatStore = create<ChatState>()((set) => ({
     })),
 
   resetUnread: (channelId) =>
-    set((state) => {
-      const next = { ...state.unreadCounts };
-      delete next[channelId];
-      return { unreadCounts: next };
-    }),
+    set((state) => ({
+      unreadCounts: { ...state.unreadCounts, [channelId]: 0 },
+    })),
+
+  setUnreadCounts: (counts) => {
+    const session = get().unreadCounts;
+    const merged = { ...counts };
+    for (const [id, n] of Object.entries(session)) {
+      merged[id] = Math.max(merged[id] ?? 0, n);
+    }
+    set({ unreadCounts: merged });
+  },
 
   setActiveChannel: (channelId) => set({ activeChannelId: channelId }),
 
@@ -69,24 +88,24 @@ export const useChatStore = create<ChatState>()((set) => ({
   },
 }));
 
-/**
- * Fire a native browser notification.
- * Silently no-ops if:
- *  - The Notification API isn't available (SSR / unsupported browser)
- *  - Permission hasn't been granted
- *  - The document is currently visible (user is actively looking at the app)
- */
-export function fireBrowserNotification(title: string, body: string): void {
+export function fireBrowserNotification(
+  title: string,
+  body: string,
+  channelId?: string,
+): void {
   if (typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
-  if (!document.hidden) return;
+
+  const { activeChannelId } = useChatStore.getState();
+  if (channelId && channelId === activeChannelId) return;
+
   try {
     new Notification(title, {
       body,
       icon: "/favicon.ico",
-      tag: "slender-chat", // prevents duplicate stacking
+      tag: channelId ? `slender-chat-${channelId}` : "slender-chat",
     });
   } catch {
-    // Swallow — some environments block `new Notification()` synchronously.
+    // ignore
   }
 }

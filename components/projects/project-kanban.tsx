@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MessageSquare } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   DndContext,
@@ -101,31 +100,45 @@ const dropAnimation: DropAnimation = {
 function TaskCardVisual({
   task,
   className,
+  onOpenDetails,
+  onCardActivate,
 }: {
   task: TaskModel;
   className?: string;
+  onOpenDetails?: (taskId: string) => void;
+  /** Click or double-click on the card body (not the drag handle). */
+  onCardActivate?: (taskId: string) => void;
 }) {
   const due = task.dueDate ? formatShortDate(task.dueDate) : null;
-  const isBadge =
-    task.priority === "Medium" ||
-    task.priority === "High" ||
-    task.priority === "Critical";
+  const isBadge = task.priority === "Medium" || task.priority === "High";
 
   let badgeFg: string = figma.priorityLow;
   let badgeBg = "transparent";
   if (task.priority === "Medium") {
     badgeFg = figma.priorityMedium;
     badgeBg = "rgba(55, 93, 251, 0.1)";
-  } else if (task.priority === "High" || task.priority === "Critical") {
+  } else if (task.priority === "High") {
     badgeFg = figma.priorityHigh;
     badgeBg = "rgba(223, 28, 65, 0.1)";
   }
 
   return (
     <div
+      role={onCardActivate ? "button" : undefined}
+      tabIndex={onCardActivate ? 0 : undefined}
+      onClick={() => onCardActivate?.(task.id)}
+      onDoubleClick={() => onCardActivate?.(task.id)}
+      onKeyDown={(e) => {
+        if (onCardActivate && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onCardActivate(task.id);
+        }
+      }}
       className={cn(
         "flex flex-col rounded-[12px] bg-white p-4 ring-1 ring-black/[0.04]",
         "select-none",
+        onCardActivate &&
+          "cursor-pointer transition-shadow hover:ring-[#266df0]/20 hover:shadow-sm",
         className,
       )}
     >
@@ -141,21 +154,27 @@ function TaskCardVisual({
               backgroundColor: isBadge ? badgeBg : "transparent",
             }}
           >
-            {task.priority === "Critical"
-              ? "Critical"
-              : task.priority === "High"
-                ? "High"
-                : task.priority === "Medium"
-                  ? "Medium"
-                  : "Low"}
+            {task.priority === "High"
+              ? "High"
+              : task.priority === "Medium"
+                ? "Medium"
+                : "Low"}
           </span>
           <div className="flex flex-col gap-1.5">
             <h3
-              className="font-semibold"
+              className={cn(
+                "font-semibold",
+                onOpenDetails && "hover:text-[#375dfb]",
+              )}
               style={{
                 fontSize: figma.taskTitleFontPx,
                 lineHeight: `${figma.taskTitleLinePx}px`,
                 color: figma.taskTitleColor,
+              }}
+              onClick={(e) => {
+                if (!onOpenDetails) return;
+                e.stopPropagation();
+                onOpenDetails(task.id);
               }}
             >
               {task.title}
@@ -183,9 +202,18 @@ function TaskCardVisual({
           }}
         >
           <span>{due ?? "—"}</span>
-          <span className="flex items-center gap-1 opacity-90">
-            <MessageSquare className="h-4 w-4" strokeWidth={1.5} />0
-          </span>
+          {onOpenDetails && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDetails(task.id);
+              }}
+              className="text-[12px] font-medium text-[#375dfb] hover:underline"
+            >
+              Details
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -220,7 +248,13 @@ function ColumnDropArea({
   );
 }
 
-function SortableTaskCard({ task }: { task: TaskModel }) {
+function SortableTaskCard({
+  task,
+  onOpenDetails,
+}: {
+  task: TaskModel;
+  onOpenDetails?: (taskId: string) => void;
+}) {
   const {
     attributes,
     listeners,
@@ -245,14 +279,17 @@ function SortableTaskCard({ task }: { task: TaskModel }) {
         isDragging && "z-10 opacity-40",
       )}
       {...attributes}
-      {...listeners}
     >
+      <div
+        {...listeners}
+        className="absolute left-0 top-0 z-10 h-full w-3 cursor-grab rounded-l-[12px] active:cursor-grabbing"
+        aria-label="Drag to reorder"
+      />
       <TaskCardVisual
         task={task}
-        className={cn(
-          "cursor-grab active:cursor-grabbing",
-          isDragging && "pointer-events-none",
-        )}
+        onOpenDetails={onOpenDetails}
+        onCardActivate={onOpenDetails}
+        className={cn("pl-1", isDragging && "pointer-events-none")}
       />
     </div>
   );
@@ -261,9 +298,14 @@ function SortableTaskCard({ task }: { task: TaskModel }) {
 interface ProjectKanbanProps {
   tasks: TaskModel[];
   priorityFilter: TaskPriority | "all";
+  onTaskClick?: (taskId: string) => void;
 }
 
-export function ProjectKanban({ tasks, priorityFilter }: ProjectKanbanProps) {
+export function ProjectKanban({
+  tasks,
+  priorityFilter,
+  onTaskClick,
+}: ProjectKanbanProps) {
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [items, setItems] = useState<Record<TaskStatus, string[]>>(() =>
@@ -306,7 +348,7 @@ export function ProjectKanban({ tasks, priorityFilter }: ProjectKanbanProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       // Small threshold so drag starts reliably (distance-only can feel “stuck”).
-      activationConstraint: { distance: 4 },
+      activationConstraint: { distance: 10 },
     }),
   );
 
@@ -499,7 +541,13 @@ export function ProjectKanban({ tasks, priorityFilter }: ProjectKanbanProps) {
                   {ids.map((id) => {
                     const task = tasksById.get(id);
                     if (!task) return null;
-                    return <SortableTaskCard key={id} task={task} />;
+                    return (
+                      <SortableTaskCard
+                        key={id}
+                        task={task}
+                        onOpenDetails={onTaskClick}
+                      />
+                    );
                   })}
                 </SortableContext>
               </ColumnDropArea>

@@ -59,7 +59,55 @@ export type TaskStatus =
   | "Done"
   | "Archived";
 
-export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
+export type TaskPriority = "Low" | "Medium" | "High";
+
+export type NotificationType =
+  | "TaskAssigned"
+  | "Mentioned"
+  | "Commented"
+  | "Deadline"
+  | "InviteAccepted"
+  | "ProjectUpdate"
+  | "DirectMessage";
+
+export interface TaskCommentModel {
+  id: string;
+  taskId: string;
+  authorId?: string | null;
+  authorName?: string | null;
+  parentCommentId?: string | null;
+  body: string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface SearchResultModel {
+  id: string;
+  type: "task" | "project";
+  title: string;
+  subtitle?: string | null;
+  projectId?: string | null;
+  updatedAtUtc?: string | null;
+}
+
+export interface SearchResponseModel {
+  results: SearchResultModel[];
+}
+
+export interface NotificationModel {
+  id: string;
+  recipientId: string;
+  actorId?: string | null;
+  type: NotificationType;
+  workspaceId?: string | null;
+  projectId?: string | null;
+  taskId?: string | null;
+  title: string;
+  body?: string | null;
+  entityName?: string | null;
+  readAtUtc?: string | null;
+  createdAtUtc: string;
+}
 
 export interface TaskModel {
   id: string;
@@ -75,6 +123,7 @@ export interface TaskModel {
   scheduledAt?: string | null;
   durationMinutes?: number | null;
   sortOrder: number;
+  assigneeUserIds?: string[];
   createdAtUtc: string;
   updatedAtUtc?: string | null;
   completedAtUtc?: string | null;

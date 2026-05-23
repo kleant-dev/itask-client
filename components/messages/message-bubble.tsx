@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { ClientMessage } from "@/lib/hooks/use-messages";
 import type { UserModel } from "@/types/models";
+import { isMessageEdited } from "@/lib/utils/messages";
 import * as hub from "@/lib/services/chat-hub";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -67,14 +68,14 @@ function SendingIcon() {
   );
 }
 
-function SentIcon() {
-  // Single checkmark
+export function SentIcon() {
+  
   return (
-    <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
       <path
-        d="M3 10l5 5L17 4"
+        d="M2 8.5l4 4L14 4"
         stroke="#8796af"
-        strokeWidth="1.8"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -82,21 +83,21 @@ function SentIcon() {
   );
 }
 
-function ReadIcon() {
-  // Double checkmark, blue
+export function ReadIcon() {
+  
   return (
-    <svg width="16" height="14" viewBox="0 0 24 20" fill="none">
+    <svg width="18" height="14" viewBox="0 0 22 16" fill="none">
       <path
-        d="M2 11l5 5L18 4"
+        d="M2 8.5l4 4L14 4"
         stroke="#266df0"
-        strokeWidth="1.8"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M8 11l5 5"
+        d="M7 8.5l4 4L19 4"
         stroke="#266df0"
-        strokeWidth="1.8"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -221,7 +222,7 @@ export function MessageBubble({
             }}
           >
             {message.body}
-            {message.updatedAtUtc !== message.createdAtUtc && !isSending && (
+            {!isSending && isMessageEdited(message) && (
               <span className="ml-1.5 text-[10px] text-[#8796af]">
                 (edited)
               </span>

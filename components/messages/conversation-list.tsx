@@ -1,14 +1,4 @@
 // components/messages/conversation-list.tsx
-//
-// Changes (Task 2 — Unread indicators):
-//
-// The `unreadCount` prop was already modeled in `ConversationItemData`.
-// Now we ALSO read `useChatStore.unreadCounts` to pick up messages that
-// arrived via SignalR after the initial channel list was fetched.
-//
-// We take max(serverCount, sessionCount) to avoid double-counting while
-// ensuring newly-arrived messages always bump the badge.
-
 "use client";
 
 import { useState } from "react";
@@ -18,12 +8,16 @@ import { cn } from "@/lib/utils";
 import type { ChannelModel } from "@/types/message-models";
 import type { UserModel } from "@/types/models";
 import { useChatStore } from "@/lib/stores/chat-store";
+import { ReadIcon, SentIcon } from "./message-bubble";
 
 interface ConversationItemData {
   channel: ChannelModel;
   otherUser: UserModel;
   lastMessage?: string;
   lastMessageAt?: string;
+  lastMessageAuthorId?: string;
+  lastMessageIsOwn?: boolean;
+  lastMessageReadAt?: string | null;
   unreadCount?: number;
 }
 
@@ -33,6 +27,7 @@ interface ConversationListProps {
   onSelect: (channelId: string) => void;
   onNewMessage: () => void;
   isLoading?: boolean;
+  currentUserId?: string;
 }
 
 function formatRelativeTime(iso?: string): string {
@@ -62,17 +57,8 @@ export function ConversationList({
 }: ConversationListProps) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "unread">("all");
-
-  // Live unread counts from SignalR (session-only, not persisted)
   const sessionUnread = useChatStore((s) => s.unreadCounts);
 
-  /**
-   * Compute the effective unread count for a channel.
-   * We take the higher of the server-derived count (passed as prop, computed
-   * at page load from lastReadAtUtc) and the session count (incremented by
-   * SignalR events since page load). This avoids double-counting while
-   * ensuring newly-arrived messages always show a badge.
-   */
   function effectiveUnread(item: ConversationItemData): number {
     const serverCount = item.unreadCount ?? 0;
     const sessionCount = sessionUnread[item.channel.id] ?? 0;
@@ -88,7 +74,6 @@ export function ConversationList({
       return true;
     });
 
-  // Total unread across all conversations for the filter chip badge
   const totalUnread = items.reduce(
     (acc, item) => acc + effectiveUnread(item),
     0,
@@ -99,7 +84,6 @@ export function ConversationList({
       className="flex h-full flex-col bg-white shrink-0"
       style={{ width: 400, borderRadius: 24, overflow: "hidden" }}
     >
-      {/* ── Header ────────────────────────────────── */}
       <div className="flex items-center justify-between px-6 pt-6 pb-0">
         <h2
           className="font-semibold text-[#111625]"
@@ -121,7 +105,6 @@ export function ConversationList({
             paddingRight: 10,
           }}
         >
-          {/* Compose icon */}
           <svg
             width="15"
             height="15"
@@ -139,7 +122,6 @@ export function ConversationList({
         </button>
       </div>
 
-      {/* ── Search + filter chips ─────────────────── */}
       <div className="flex flex-col gap-3 px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
@@ -167,7 +149,6 @@ export function ConversationList({
           </button>
         </div>
 
-        {/* Quick filter chips */}
         <div className="flex items-center gap-2 text-[12px]">
           <button
             onClick={() => setFilter("all")}
@@ -199,10 +180,8 @@ export function ConversationList({
         </div>
       </div>
 
-      {/* ── Conversation list ─────────────────────── */}
       <div className="flex flex-1 flex-col overflow-y-auto px-4 gap-1 pb-4">
         {isLoading ? (
-          /* Skeleton */
           <div className="flex flex-col gap-2 px-2 pt-2">
             {Array.from({ length: 5 }).map((_, i) => (
               <div
@@ -220,22 +199,30 @@ export function ConversationList({
         ) : filtered.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 py-12 text-center">
             <p className="text-[14px] font-medium text-[#596881]">
-              {search
-                ? `No conversations matching "${search}"`
-                : "No conversations yet."}
+              {filter === "unread"
+                ? "No unread conversations"
+                : search
+                  ? `No conversations matching "${search}"`
+                  : "No conversations yet."}
             </p>
-            <button
-              onClick={onNewMessage}
-              className="mt-2 text-[13px] font-medium text-[#266df0] hover:underline transition-colors"
-            >
-              Start a new message →
-            </button>
+            {filter !== "unread" && (
+              <button
+                onClick={onNewMessage}
+                className="mt-2 text-[13px] font-medium text-[#266df0] hover:underline transition-colors"
+              >
+                Start a new message →
+              </button>
+            )}
           </div>
         ) : (
           filtered.map((item) => {
             const isSelected = item.channel.id === selectedChannelId;
             const unread = effectiveUnread(item);
             const hasUnread = unread > 0;
+            const showReadReceipt =
+              !hasUnread &&
+              item.lastMessageIsOwn &&
+              !!item.lastMessage;
 
             return (
               <button
@@ -250,7 +237,6 @@ export function ConversationList({
                       : "hover:bg-[#f7f9fb]",
                 )}
               >
-                {/* Avatar */}
                 <div className="relative shrink-0">
                   <Avatar style={{ width: 42, height: 42 }}>
                     <AvatarImage src={item.otherUser.avatarUrl ?? undefined} />
@@ -264,11 +250,9 @@ export function ConversationList({
                       {getInitials(item.otherUser.name)}
                     </AvatarFallback>
                   </Avatar>
-                  {/* Online dot placeholder — replace with real presence when available */}
                   <span className="absolute bottom-0.5 right-0.5 block h-2.5 w-2.5 rounded-full bg-[#38c793] ring-2 ring-white" />
                 </div>
 
-                {/* Content */}
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex items-center justify-between gap-1">
                     <span
@@ -294,10 +278,13 @@ export function ConversationList({
                           : "text-[#8796af]",
                       )}
                     >
-                      {item.lastMessage ?? "No messages yet"}
+                      {hasUnread && !item.lastMessageIsOwn
+                        ? item.lastMessage ?? "New message"
+                        : item.lastMessageIsOwn
+                          ? `You: ${item.lastMessage ?? ""}`
+                          : (item.lastMessage ?? "No messages yet")}
                     </p>
 
-                    {/* Unread badge OR double-check for read */}
                     {hasUnread ? (
                       <span
                         className="shrink-0 rounded-full bg-[#266df0] text-[10px] font-semibold text-white leading-none flex items-center justify-center"
@@ -309,30 +296,12 @@ export function ConversationList({
                       >
                         {unread > 99 ? "99+" : unread}
                       </span>
-                    ) : item.lastMessage ? (
-                      /* Double-check "delivered" icon */
-                      <svg
-                        width="16"
-                        height="14"
-                        viewBox="0 0 24 20"
-                        fill="none"
-                        className="shrink-0"
-                      >
-                        <path
-                          d="M2 11l5 5L18 4"
-                          stroke={isSelected ? "#266df0" : "#8796af"}
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M8 11l5 5"
-                          stroke={isSelected ? "#266df0" : "#8796af"}
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                    ) : showReadReceipt ? (
+                      item.lastMessageReadAt ? (
+                        <ReadIcon />
+                      ) : (
+                        <SentIcon />
+                      )
                     ) : null}
                   </div>
                 </div>

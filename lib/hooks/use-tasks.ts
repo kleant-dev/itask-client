@@ -4,6 +4,14 @@ import type { TaskModel, TaskStatus } from "@/types/models";
 import type { PagedResponse } from "@/types/api";
 import { useUiStore } from "@/lib/stores/ui-store";
 
+export function useTask(taskId: string | null) {
+  return useQuery<TaskModel>({
+    queryKey: ["task", taskId],
+    queryFn: () => tasksApi.getById(taskId!),
+    enabled: !!taskId,
+  });
+}
+
 export function useWorkspaceTasks(params?: {
   status?: TaskStatus;
   pageNumber?: number;

@@ -133,9 +133,6 @@ export function ProjectToolbar({
                 Medium
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="Low">Low</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="Critical">
-                Critical
-              </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -16,8 +16,12 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Search, Phone, Video, MoreHorizontal } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Search, Phone, Video, MoreHorizontal, ChevronDown } from "lucide-react";
+import {
+  isChatPinnedToBottom,
+  scrollChatToBottom,
+} from "@/lib/utils/chat-scroll";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageBubble } from "./message-bubble";
 import { MessageInput } from "./message-input";
@@ -80,10 +84,26 @@ export function ChatWindow({ channelId, otherUser }: ChatWindowProps) {
     (s) => s.requestNotificationPermission,
   );
 
-  const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const pinnedToBottomRef = useRef(true);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
+  const lastMessageKey =
+    messages.length > 0
+      ? `${messages[messages.length - 1]?.id}-${messages.length}`
+      : "empty";
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    scrollChatToBottom(el, behavior);
+    pinnedToBottomRef.current = true;
+    setShowScrollToBottom(false);
+  }, []);
+
+  const isOtherUserTyping =
+    otherUser.id !== undefined && typingUserIds.has(otherUser.id);
 
   // ── Mark channel active & request notification permission ────────────────
   useEffect(() => {
@@ -97,35 +117,39 @@ export function ChatWindow({ channelId, otherUser }: ChatWindowProps) {
     };
   }, [channelId, setActiveChannel, resetUnread, requestNotificationPermission]);
 
-  // ── Auto-scroll ───────────────────────────────────────────────────────────
+  // Pin to bottom when opening a conversation
   useEffect(() => {
+    pinnedToBottomRef.current = true;
+    setShowScrollToBottom(false);
+    const el = scrollContainerRef.current;
+    if (el) scrollChatToBottom(el, "auto");
+  }, [channelId]);
+
+  // Auto-scroll on new messages when the user has not scrolled up
+  useEffect(() => {
+    if (isLoading) return;
     const el = scrollContainerRef.current;
     if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (nearBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-      setShowScrollToBottom(false);
-    } else {
+
+    if (pinnedToBottomRef.current) {
+      requestAnimationFrame(() => {
+        scrollChatToBottom(el, "auto");
+        setShowScrollToBottom(false);
+      });
+    } else if (messages.length > 0) {
       setShowScrollToBottom(true);
     }
-  }, [messages.length]);
+  }, [lastMessageKey, isLoading, isOtherUserTyping]);
 
   function handleScroll() {
     const el = scrollContainerRef.current;
     if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    setShowScrollToBottom(!nearBottom && messages.length > 0);
-  }
-
-  function scrollToBottom() {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    setShowScrollToBottom(false);
+    const pinned = isChatPinnedToBottom(el);
+    pinnedToBottomRef.current = pinned;
+    setShowScrollToBottom(!pinned && messages.length > 0);
   }
 
   const grouped = groupMessages(messages);
-  console.log(grouped);
-  const isOtherUserTyping =
-    otherUser.id !== undefined && typingUserIds.has(otherUser.id);
 
   const {
     phase: callPhase,
@@ -287,16 +311,14 @@ export function ChatWindow({ channelId, otherUser }: ChatWindowProps) {
         ) : (
           <div className="flex flex-col gap-1">
             {grouped.map((msg) => {
-              console.log(msg);
               const isOwn = msg.authorId === currentUserId;
 
-              // Delivery status for own messages
               let deliveryStatus: "sending" | "sent" | "read" | undefined;
               if (isOwn) {
                 if (msg._status === "sending") {
                   deliveryStatus = "sending";
-                } else if (msg.readAtUtc !== null) {
-                  deliveryStatus = "read"; // ← driven by the message's own readAtUtc
+                } else if (msg.readAtUtc) {
+                  deliveryStatus = "read";
                 } else {
                   deliveryStatus = "sent";
                 }
@@ -357,7 +379,7 @@ export function ChatWindow({ channelId, otherUser }: ChatWindowProps) {
                 </div>
               </div>
             )}
-            <div ref={bottomRef} />
+            <div aria-hidden className="h-px shrink-0" />
           </div>
         )}
       </div>
@@ -372,10 +394,13 @@ export function ChatWindow({ channelId, otherUser }: ChatWindowProps) {
       {/* ── Scroll-to-bottom pill ─────────────────────────────────────── */}
       {showScrollToBottom && (
         <button
-          onClick={scrollToBottom}
-          className="absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full bg-[#111625] px-4 py-1.5 text-[12px] font-medium text-white shadow-lg hover:bg-[#111625]/90 transition-colors"
+          type="button"
+          onClick={() => scrollToBottom("smooth")}
+          title="Jump to latest"
+          aria-label="Jump to latest messages"
+          className="absolute bottom-20 right-6 flex h-9 w-9 items-center justify-center rounded-full border border-[#dde3ee] bg-white text-[#596881] shadow-md transition-colors hover:bg-[#f7f9fb]"
         >
-          New messages · Jump to latest ↓
+          <ChevronDown className="h-5 w-5" strokeWidth={2} />
         </button>
       )}
 

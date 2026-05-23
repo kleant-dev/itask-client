@@ -35,13 +35,26 @@ export interface UseCallResult {
   hangUp: () => Promise<void>;
 }
 
-// Very small helper so we don't scatter WebRTC config.
-const rtcConfig: RTCConfiguration = {
-  iceServers: [
+function buildRtcConfig(): RTCConfiguration {
+  const iceServers: RTCIceServer[] = [
     { urls: "stun:stun.l.google.com:19302" },
-    // You can add your own TURN here when available.
-  ],
-};
+  ];
+
+  const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
+  const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
+  const turnPass = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
+
+  if (turnUrl) {
+    iceServers.push({
+      urls: turnUrl,
+      ...(turnUser && turnPass
+        ? { username: turnUser, credential: turnPass }
+        : {}),
+    });
+  }
+
+  return { iceServers };
+}
 
 export function useCall({
   channelId,
@@ -146,7 +159,7 @@ export function useCall({
   const ensurePeerConnection = useCallback(
     (stream: MediaStream) => {
       if (pcRef.current) return pcRef.current;
-      const pc = new RTCPeerConnection(rtcConfig);
+      const pc = new RTCPeerConnection(buildRtcConfig());
       pcRef.current = pc;
 
       // Send our tracks

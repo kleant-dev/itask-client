@@ -5,7 +5,20 @@ import type {
 } from "@/types/models";
 import type { PagedResponse } from "@/types/api";
 
+export interface CreateWorkspaceRequest {
+  ownerId: string;
+  name: string;
+  slug: string;
+  description?: string;
+  logoUrl?: string;
+}
+
 export const workspacesApi = {
+  create: async (data: CreateWorkspaceRequest): Promise<WorkspaceModel> => {
+    const response = await apiClient.post<WorkspaceModel>("/workspaces", data);
+    return response.data;
+  },
+
   getMyWorkspaces: async (params?: {
     pageNumber?: number;
     pageSize?: number;
