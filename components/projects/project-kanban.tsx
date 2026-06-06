@@ -87,6 +87,8 @@ function isContainerId(id: UniqueIdentifier): boolean {
   return COLUMNS.some((c) => c.status === String(id));
 }
 
+const AVATAR_COLORS = ["#266df0", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444"];
+
 const dropAnimation: DropAnimation = {
   duration: 220,
   easing: "cubic-bezier(0.25, 1, 0.5, 1)",
@@ -101,13 +103,10 @@ function TaskCardVisual({
   task,
   className,
   onOpenDetails,
-  onCardActivate,
 }: {
   task: TaskModel;
   className?: string;
   onOpenDetails?: (taskId: string) => void;
-  /** Click or double-click on the card body (not the drag handle). */
-  onCardActivate?: (taskId: string) => void;
 }) {
   const due = task.dueDate ? formatShortDate(task.dueDate) : null;
   const isBadge = task.priority === "Medium" || task.priority === "High";
@@ -124,21 +123,9 @@ function TaskCardVisual({
 
   return (
     <div
-      role={onCardActivate ? "button" : undefined}
-      tabIndex={onCardActivate ? 0 : undefined}
-      onClick={() => onCardActivate?.(task.id)}
-      onDoubleClick={() => onCardActivate?.(task.id)}
-      onKeyDown={(e) => {
-        if (onCardActivate && (e.key === "Enter" || e.key === " ")) {
-          e.preventDefault();
-          onCardActivate(task.id);
-        }
-      }}
       className={cn(
         "flex flex-col rounded-[12px] bg-white p-4 ring-1 ring-black/[0.04]",
         "select-none",
-        onCardActivate &&
-          "cursor-pointer transition-shadow hover:ring-[#266df0]/20 hover:shadow-sm",
         className,
       )}
     >
@@ -202,18 +189,34 @@ function TaskCardVisual({
           }}
         >
           <span>{due ?? "—"}</span>
-          {onOpenDetails && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenDetails(task.id);
-              }}
-              className="text-[12px] font-medium text-[#375dfb] hover:underline"
-            >
-              Details
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-1.5">
+              {(task.assigneeUserIds ?? []).slice(0, 3).map((uid, i) => (
+                <div
+                  key={uid}
+                  className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[9px] font-semibold text-white"
+                  style={{
+                    backgroundColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+                  }}
+                  title={uid}
+                >
+                  {uid.slice(0, 2).toUpperCase()}
+                </div>
+              ))}
+            </div>
+            {onOpenDetails && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetails(task.id);
+                }}
+                className="text-[12px] font-medium text-[#375dfb] hover:underline"
+              >
+                Details
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -275,21 +278,16 @@ function SortableTaskCard({
       ref={setNodeRef}
       style={dndStyle}
       className={cn(
-        "relative rounded-[12px] outline-none",
+        "relative rounded-[12px] outline-none cursor-grab active:cursor-grabbing",
         isDragging && "z-10 opacity-40",
       )}
       {...attributes}
+      {...listeners}
     >
-      <div
-        {...listeners}
-        className="absolute left-0 top-0 z-10 h-full w-3 cursor-grab rounded-l-[12px] active:cursor-grabbing"
-        aria-label="Drag to reorder"
-      />
       <TaskCardVisual
         task={task}
         onOpenDetails={onOpenDetails}
-        onCardActivate={onOpenDetails}
-        className={cn("pl-1", isDragging && "pointer-events-none")}
+        className={cn(isDragging && "pointer-events-none")}
       />
     </div>
   );
@@ -348,7 +346,7 @@ export function ProjectKanban({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       // Small threshold so drag starts reliably (distance-only can feel “stuck”).
-      activationConstraint: { distance: 10 },
+      activationConstraint: { distance: 4 },
     }),
   );
 

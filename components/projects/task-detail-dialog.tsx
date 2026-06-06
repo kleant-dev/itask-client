@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, MessageSquare } from "lucide-react";
@@ -79,7 +79,9 @@ export function TaskDetailDialog({
   const [status, setStatus] = useState<TaskStatus>("Todo");
   const [priority, setPriority] = useState<TaskPriority>("Medium");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [dueDate, setDueDate] = useState("");
   const [commentBody, setCommentBody] = useState("");
+  const commentsEndRef = useRef<HTMLDivElement>(null);
 
   const members = (membersData?.items ?? [])
     .filter((m) => m.user)
@@ -100,7 +102,12 @@ export function TaskDetailDialog({
     setStatus(task.status);
     setPriority(task.priority);
     setAssigneeIds(task.assigneeUserIds ?? []);
+    setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : "");
   }, [open, task]);
+
+  useEffect(() => {
+    commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [comments]);
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -111,6 +118,7 @@ export function TaskDetailDialog({
         status,
         priority,
         assigneeUserIds: assigneeIds,
+        dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
       });
     },
     onSuccess: () => {
@@ -175,7 +183,7 @@ export function TaskDetailDialog({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="task-detail-status">Status</Label>
                   <select
@@ -207,6 +215,16 @@ export function TaskDetailDialog({
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="task-detail-due">Due date</Label>
+                  <Input
+                    id="task-detail-due"
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="h-9 text-[13px]"
+                  />
                 </div>
               </div>
 
@@ -305,6 +323,7 @@ export function TaskDetailDialog({
                       </span>
                     </li>
                   ))}
+                  <div ref={commentsEndRef} />
                 </ul>
               )}
 
@@ -327,6 +346,21 @@ export function TaskDetailDialog({
                 <Input
                   value={commentBody}
                   onChange={(e) => setCommentBody(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      const body = commentBody.trim();
+                      if (!body || !taskId || createComment.isPending) return;
+                      createComment.mutate(body, {
+                        onSuccess: () => {
+                          setCommentBody("");
+                          toast.success("Comment posted");
+                        },
+                        onError: (err) =>
+                          toast.error(getTaskCommentErrorMessage(err)),
+                      });
+                    }
+                  }}
                   placeholder="Write a comment…"
                   className="flex-1 bg-white"
                   disabled={createComment.isPending}

@@ -79,27 +79,23 @@ function ProjectDetailPageContent() {
         onShare={() => toast.message("Sharing will be available soon.")}
       />
 
-      {tasksLoading && (
-        <p className="text-p-small text-neutral-500">Loading tasks…</p>
-      )}
-
-      {!tasksLoading && view === "board" && (
-        <ProjectKanban
-          tasks={tasks}
-          priorityFilter={priorityFilter}
-          onTaskClick={setDetailTaskId}
-        />
-      )}
-
-      {!tasksLoading && view === "list" && (
-        <ProjectTaskList
-          tasks={tasks}
-          priorityFilter={priorityFilter}
-          onTaskClick={setDetailTaskId}
-        />
-      )}
-
-      {!tasksLoading && view === "timeline" && <ProjectTimelinePlaceholder />}
+      <div className={tasksLoading ? "opacity-50 pointer-events-none" : ""}>
+        {view === "board" && (
+          <ProjectKanban
+            tasks={tasks}
+            priorityFilter={priorityFilter}
+            onTaskClick={setDetailTaskId}
+          />
+        )}
+        {view === "list" && (
+          <ProjectTaskList
+            tasks={tasks}
+            priorityFilter={priorityFilter}
+            onTaskClick={setDetailTaskId}
+          />
+        )}
+        {view === "timeline" && <ProjectTimelinePlaceholder />}
+      </div>
 
       {workspaceId && (
         <CreateTaskDialog
